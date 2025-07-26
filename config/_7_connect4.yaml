@@ -1,0 +1,17 @@
+defaults:
+  - base
+
+trainer:
+  experiment_name: connect4
+
+actor_rollout_ref:
+  rollout:
+    max_model_len: 6000  # 会超出默认的最大长度3600
+
+es_manager:
+  train:
+    env_configs:
+      tags: ["Connect4"]
+  val:
+    env_configs:
+      tags: ["Connect4"]

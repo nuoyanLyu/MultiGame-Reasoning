@@ -172,8 +172,9 @@ def run_ppo(config) -> None:
                 'NCCL_DEBUG': 'WARN',
                 'VLLM_LOGGING_LEVEL': 'WARN',
                 "RAY_DEBUG": "legacy" # used here for simpler breakpoint()
-            }
-        })
+            }},
+            _temp_dir='/home/lvnuoyan/tmp/ray'
+        )
 
     runner = TaskRunner.remote()
     ray.get(runner.run.remote(config))

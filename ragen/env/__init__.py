@@ -10,6 +10,8 @@ from .frozen_lake.config import FrozenLakeEnvConfig
 from .frozen_lake.env import FrozenLakeEnv
 from .metamathqa.env import MetaMathQAEnv
 from .metamathqa.config import MetaMathQAEnvConfig
+from .connect4.env import Connect4Env
+from .connect4.config import Connect4EnvConfig
 
 
 REGISTERED_ENVS = {
@@ -19,6 +21,7 @@ REGISTERED_ENVS = {
     'frozen_lake': FrozenLakeEnv,
     # 'alfworld': AlfredTXTEnv,
     'metamathqa': MetaMathQAEnv,
+    'connect4': Connect4Env,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -28,6 +31,7 @@ REGISTERED_ENV_CONFIGS = {
     'frozen_lake': FrozenLakeEnvConfig,
     # 'alfworld': AlfredEnvConfig,
     'metamathqa': MetaMathQAEnvConfig,
+    'connect4': Connect4EnvConfig,
 }
 
 try:

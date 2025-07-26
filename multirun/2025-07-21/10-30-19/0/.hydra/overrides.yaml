@@ -1,0 +1,6 @@
+- system.CUDA_VISIBLE_DEVICES=[4,5]
+- trainer.experiment_name=sokoban-grpo
+- actor_rollout_ref.rollout.rollout_filter_ratio=0.25
+- algorithm.adv_estimator=grpo
+- agent_proxy.reward_normalization.method=mean_std
+- actor_rollout_ref.actor.use_kl_loss=True

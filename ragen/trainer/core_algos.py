@@ -1,5 +1,5 @@
 from verl.trainer.ppo.core_algos import *
-
+import torch
 # supported by Kangrui Wang
 def compute_bi_level_gae_advantage_return(
         token_level_rewards: torch.Tensor,
@@ -100,3 +100,9 @@ if __name__ == "__main__":
     advantages, returns = compute_bi_level_gae_advantage_return(token_level_rewards, values, loss_mask, 1, 1, 0.95)
     print(advantages)
     print(returns)
+
+
+def agg_loss():
+    print('deprecated! exit!')
+    exit(1)
+    return None
