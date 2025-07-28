@@ -6,8 +6,9 @@ custom_envs:
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config:  # 这里可以指定env_config中的config文件信息 先默认是和本地QWEN8B对战，后续看怎么改self-play
       player_info: 
-        - model_name: 'Qwen3-8B-Base'
-          port: 3833
+        - model_name: 'deepseek'
+        # - model_name: 'Qwen3-8B-Base'
+        #   port: 3833
       temperature: 0.5
       seed: 123
       max_env_try: 3

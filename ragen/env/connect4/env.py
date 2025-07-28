@@ -106,7 +106,8 @@ class Connect4Env(BaseDiscreteActionEnv, gym.Env):
         """Initializes the board as a 6x7 grid of zeros."""
         self.seed = seed
         seed_everything(seed)
-        # TODO：需要根据随机数种子初始化一个棋局，打算是根据种子选取下棋步骤以及位置，
+        self.game_state = np.zeros((self.rows, self.cols), dtype=int)
+        # 根据随机数种子初始化一个棋局，打算是根据种子选取下棋步骤以及位置，
         # 从而保证不同的初始状态、不全是空棋盘开始
         # 重置环境Player对应的玩家顺序
         self.env_id = random.choice([0, 1])
