@@ -2,12 +2,19 @@ from abc import ABC, abstractmethod
 import re
 from typing import Optional, List, Tuple, Any, Dict
 from openai import OpenAI
+import os
 import random 
 import numpy as np
 
 # 未来开源的时候记得删了！！！！
-deepseek_key = 'sk-9071ab7ceef44f17a184ff1757962580'
-open_router_key = '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'
+deepseek_key = os.environ.get('DEEPSEEK_KEY')
+if not deepseek_key:
+    print('No deepseek key found, please set it in the environment variable DEEPSEEK_KEY')
+    exit(1)
+open_router_key = os.environ.get('OPEN_ROUTER_KEY')
+if not open_router_key:
+    print('No open router key found, please set it in the environment variable OPEN_ROUTER_KEY')
+    exit(1)
 # model_name = 'Qwen3-8B-Base'
 # PORT = '38388'
 
