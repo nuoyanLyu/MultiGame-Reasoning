@@ -3,6 +3,7 @@ defaults:
 
 trainer:
   experiment_name: connect4
+  save_freq: 50
 
 actor_rollout_ref:
   rollout:
