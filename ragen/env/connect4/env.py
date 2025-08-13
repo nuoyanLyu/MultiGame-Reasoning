@@ -4,7 +4,7 @@ import re
 
 from openai import NotFoundError
 
-from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything
+from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed
 from .config import Connect4EnvConfig
 import gymnasium as gym
 import random
@@ -218,14 +218,14 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
         # 环境agent采取行动
         self.current_player_id = self.env_id
         env_prompt = self.render()
-        print(env_prompt)
+        # print(env_prompt)
         valid = False
         try_count = 0
         while not valid and try_count < self.max_env_try:
             env_output = self.env_player.act(env_prompt, 0)
             # 同样处理action、更新环境的流程
             # 看一下deepseek输出的是什么东西？是否长篇大论
-            print(env_output)
+            # print(env_output)
             action = self._parse_action(env_output)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution

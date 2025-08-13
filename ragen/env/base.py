@@ -6,6 +6,23 @@ import os
 import random 
 import numpy as np
 
+import time, logging, functools
+
+# add time track part
+def timed(label):
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrap(*args, **kw):
+            t0 = time.monotonic()
+            try:
+                return fn(*args, **kw)
+            finally:
+                dt = time.monotonic() - t0
+                print(f"[TIMER] {label} took {dt:.3f}s")
+        return wrap
+    return deco
+
+
 # 环境测试命令：
 # python -m ragen.env.connect4.env
 
@@ -155,6 +172,7 @@ class EnvPlayer():
             self.players.append({'client':client, 'model':model})
             # print(f'Set Player {i} with model {model}')
     
+    @timed('env_player_act')
     def act(self, message, player_id):
         """
         调用API、获得指定玩家回复
