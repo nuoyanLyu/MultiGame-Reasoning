@@ -6,6 +6,9 @@ import os
 import random 
 import numpy as np
 
+# 环境测试命令：
+# python -m ragen.env.connect4.env
+
 # 未来开源的时候记得删了！！！！
 deepseek_key = os.environ.get('DEEPSEEK_KEY')
 if not deepseek_key:
@@ -179,7 +182,7 @@ class EnvPlayer():
             model=model,
             messages=message0,
             temperature=self.temperature,
-            # max_tokens=2000,
+            max_tokens=200,
         )
         return response.choices[0].message.content
 

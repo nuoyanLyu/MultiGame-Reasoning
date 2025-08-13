@@ -20,7 +20,7 @@ class Connect4EnvConfig:
     player_num: int = 2
     # TODO：后续需要修改，看看self-play需要如何设置
     player_info: List[Dict[str, Any]] = field(
-        default_factory=lambda: [{'model_name': 'Qwen3-8B-Base', 'port': 3833}]
+        default_factory=lambda: [{'model_name': 'deepseek'}]
     )
     temperature: float = 0.5
     seed: int = 123

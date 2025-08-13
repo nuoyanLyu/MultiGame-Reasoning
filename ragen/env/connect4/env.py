@@ -9,6 +9,7 @@ from .config import Connect4EnvConfig
 import gymnasium as gym
 import random
 
+
 system_prompt = "You are an expert in playing the Game Connect4."
 
 INIT_PROMPT = f"""
@@ -97,6 +98,7 @@ class Connect4Env(BaseDiscreteActionEnv, gym.Env):
         self.max_env_try = self.config.max_env_try
         self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, temperature=self.config.temperature)
         self.env_id = None
+        self.current_player_id = None
         self.history = []
         self.game_state = np.zeros((self.rows, self.cols), dtype=int)
         self.last_move: Optional[tuple[int, int]] = None
@@ -130,11 +132,12 @@ class Connect4Env(BaseDiscreteActionEnv, gym.Env):
                 "player": 0,
                 "action": action
             })
+        self.current_player_id = 1 - self.env_id
 
     def render(self) -> str:
         # 和之前的get_state_prompt相同的作用 生成当前棋局的信息
         # INIT_prompt，state_prompt以及action_prompt
-        player = f'Player {2 - self.env_id}'
+        player = f'Player {self.current_player_id + 1}'
         state_prompt = self._get_state_prompt()
         actions = self.get_all_actions()
         prompt = f"""You are {player} playing game Connect 4.
@@ -150,7 +153,8 @@ You are {player}.
 The available actions are: {actions}.
 
 Please choose your action and provide your response by enclosing your choice in <s></s> tags.
-For example: <s>{actions[0]}</s>
+Reply with a SINGLE LINE with <s>{actions[0]}</s> and reasons with no more than 20 words.
+For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
 """
         return prompt
 
@@ -212,12 +216,16 @@ For example: <s>{actions[0]}</s>
         
         # Switch to the next player if the game is not over
         # 环境agent采取行动
+        self.current_player_id = self.env_id
         env_prompt = self.render()
+        print(env_prompt)
         valid = False
         try_count = 0
         while not valid and try_count < self.max_env_try:
             env_output = self.env_player.act(env_prompt, 0)
             # 同样处理action、更新环境的流程
+            # 看一下deepseek输出的是什么东西？是否长篇大论
+            print(env_output)
             action = self._parse_action(env_output)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution
@@ -269,7 +277,7 @@ For example: <s>{actions[0]}</s>
             return draw_prompt, reward, done, info
         
         # 没有失败、没有平局——调用train agent进入下一步
-        # 环境agent采取行动
+        self.current_player_id = 1 - self.env_id
         train_prompt = self.render()
         reward = 0
         done = False
@@ -436,5 +444,5 @@ if __name__ == "__main__":
         # action = int(keyboard)
         # assert action in env.ACTION_LOOKUP, f"Invalid action: {action}"
         obs, reward, done, info = env.step(keyboard)
-        for o in [obs, reward, done, info]:
-            print(o)
+        # for o in [obs, reward, done, info]:
+        #     print(o)
