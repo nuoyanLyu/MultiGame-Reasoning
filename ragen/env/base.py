@@ -172,7 +172,7 @@ class EnvPlayer():
             self.players.append({'client':client, 'model':model})
             # print(f'Set Player {i} with model {model}')
     
-    @timed('env_player_act')
+    # @timed('env_player_act')
     def act(self, message, player_id):
         """
         调用API、获得指定玩家回复
