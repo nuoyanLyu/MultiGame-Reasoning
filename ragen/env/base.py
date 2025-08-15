@@ -6,7 +6,8 @@ import os
 import random 
 import numpy as np
 
-import time, logging, functools
+import time, logging, functools, itertools
+import json
 
 # add time track part
 def timed(label):
@@ -27,14 +28,16 @@ def timed(label):
 # python -m ragen.env.connect4.env
 
 # 未来开源的时候记得删了！！！！
-deepseek_key = os.environ.get('DEEPSEEK_KEY')
-if not deepseek_key:
-    print('No deepseek key found, please set it in the environment variable DEEPSEEK_KEY')
+deepseek_keys = json.load(open('ragen/env/api-keys.json'))['deepseek']
+# deepseek_key = os.environ.get('DEEPSEEK_KEY')
+if not deepseek_keys:
+    print('No deepseek keys found, please set it in the environment variable DEEPSEEK_KEY')
     exit(1)
-open_router_key = os.environ.get('OPEN_ROUTER_KEY')
-if not open_router_key:
-    print('No open router key found, please set it in the environment variable OPEN_ROUTER_KEY')
-    exit(1)
+deepseek_keys = itertools.cycle(deepseek_keys)
+# open_router_key = os.environ.get('OPEN_ROUTER_KEY')
+# if not open_router_key:
+#     print('No open router key found, please set it in the environment variable OPEN_ROUTER_KEY')
+#     exit(1)
 # model_name = 'Qwen3-8B-Base'
 # PORT = '38388'
 
@@ -153,7 +156,7 @@ class EnvPlayer():
         for i in range(self.num_players - 1):
             model_name = player_info[i]['model_name']
             if model_name == 'deepseek':
-                client = OpenAI(api_key=deepseek_key,
+                client = OpenAI(api_key=next(deepseek_keys),
                                 base_url='https://api.deepseek.com')
                 model = 'deepseek-chat'
             elif 'Qwen' in model_name:

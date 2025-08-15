@@ -114,5 +114,7 @@ tests/e2e/toy_examples/deepspeed/synchronous/output.txt
 # vim
 *.swp
 
+# log file information
+logs/
 
-log/
+ragen/env/api-keys.json
