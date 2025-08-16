@@ -218,8 +218,9 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
             env_output = self.env_player.act(env_prompt, 0)
             # 同样处理action、更新环境的流程
             # 看一下deepseek输出的是什么东西？是否长篇大论
-            # print(env_output)
+            print(env_output)
             action = self._parse_action(env_output)
+            print(action)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution
             if action in available_actions:
@@ -307,9 +308,9 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
 
     def _parse_action(self, llm_output: str) -> Optional[str]:
         """Helper to extract action from LLM's raw output."""
-        pattern = r"<s>\(\s*(\d+)\s*,\s*(\d+)\s*\)</s>"
+        pattern = r".*<s>\(\s*(\d+)\s*,\s*(\d+)\s*\)</s>.*"
         # text = "<s>(1, 1)</s>"  # 你从模型输出得到的字符串
-        match = re.fullmatch(pattern, llm_output)
+        match = re.match(pattern, llm_output)
         if match:
             row = int(match.group(1))
             col = int(match.group(2))
@@ -327,6 +328,7 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
         row, col = action[0] - 1, action[1] - 1
         player_piece = player_id + 1
         self.game_state[row, col] = player_piece
+        self.last_move = (row, col)
         # Find the lowest empty row in that column
         # for r in range(self.rows - 1, -1, -1):
         #     if self.game_state[r, col] == 0:
