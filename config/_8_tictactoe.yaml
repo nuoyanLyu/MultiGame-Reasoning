@@ -1,0 +1,18 @@
+defaults:
+  - base
+
+trainer:
+  experiment_name: TicTacToe
+  save_freq: 20
+
+actor_rollout_ref:
+  rollout:
+    max_model_len: 4000  # 会超出默认的最大长度3600
+
+es_manager:
+  train:
+    env_configs:
+      tags: ["TicTacToe"]
+  val:
+    env_configs:
+      tags: ["TicTacToe"]
