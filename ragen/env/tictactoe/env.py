@@ -218,9 +218,9 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
             env_output = self.env_player.act(env_prompt, 0)
             # 同样处理action、更新环境的流程
             # 看一下deepseek输出的是什么东西？是否长篇大论
-            print(env_output)
+            # print(env_output)
             action = self._parse_action(env_output)
-            print(action)
+            # print(action)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution
             if action in available_actions:
