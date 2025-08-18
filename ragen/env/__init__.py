@@ -12,6 +12,8 @@ from .metamathqa.env import MetaMathQAEnv
 from .metamathqa.config import MetaMathQAEnvConfig
 from .connect4.env import Connect4Env
 from .connect4.config import Connect4EnvConfig
+from .tictactoe.env import TicTacToeEnv
+from .tictactoe.config import TicTacToeEnvConfig
 
 
 REGISTERED_ENVS = {
@@ -22,6 +24,7 @@ REGISTERED_ENVS = {
     # 'alfworld': AlfredTXTEnv,
     'metamathqa': MetaMathQAEnv,
     'connect4': Connect4Env,
+    'tictactoe': TicTacToeEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -32,6 +35,7 @@ REGISTERED_ENV_CONFIGS = {
     # 'alfworld': AlfredEnvConfig,
     'metamathqa': MetaMathQAEnvConfig,
     'connect4': Connect4EnvConfig,
+    'tictactoe': TicTacToeEnvConfig,
 }
 
 try:

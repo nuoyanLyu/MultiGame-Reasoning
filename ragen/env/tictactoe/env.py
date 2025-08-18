@@ -68,7 +68,7 @@ If the entire grid is filled with pieces and no player has won, the game is a dr
 
 class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
     """
-    A Connect4 game environment.
+    A TicTactoe game environment.
     Inherits from LLMGameEnv and implements the game-specific logic.
     """
     def __init__(self, config=None):
@@ -388,7 +388,7 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
 
     def _parse_and_update_game_state(self, state_string: str) -> Dict[int, int]:
         """
-        Parses a Connect4 board string, updates the numpy game_state,
+        Parses a TicTacToe board string, updates the numpy game_state,
         and counts the pieces for each player.
         """
         # Define the character-to-piece-value mapping
