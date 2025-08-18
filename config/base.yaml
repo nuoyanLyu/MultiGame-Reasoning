@@ -10,7 +10,7 @@ seed:
   val: 123
 
 micro_batch_size_per_gpu: 1
-ppo_mini_batch_size: 32
+ppo_mini_batch_size: 8
 model_path: /data1/lvnuoyan/llm_model/Qwen3-1.7B
 enable_response_mask: True # Enabling response mask could improve stability of rollout/old_log_prob, as P(st|history) are no longer calculated in loss here. See https://docs.google.com/document/d/1bg7obeiKTExuHHBl5uOiSpec5uLDZ2Tgvxy6li5pHX4/edit?usp=sharing for more details.
 grpo_advantage_length_weight: False # if you do not enable this and critic/advantage_estimator is GRPO, and the critic/advantages/mean is too low, then you can try enabling this to encourage reasoning and forbid collapse
@@ -47,8 +47,8 @@ actor_rollout_ref:
     tensor_model_parallel_size: 1
     max_model_len: 3600
     prompt_length: 1 # useless. Just put it here
-    response_length: 400 # single-turn response length
-    gpu_memory_utilization: 0.8
+    response_length: 200 # single-turn response length
+    gpu_memory_utilization: 0.7
     max_num_batched_tokens: 8192 # set only when enable_chunked_prefill is true
     temperature: 1
     rollout_filter_ratio: 0.25
