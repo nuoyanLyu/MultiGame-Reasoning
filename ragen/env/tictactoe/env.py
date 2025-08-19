@@ -132,7 +132,7 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         player = f'Player {self.current_player_id + 1}'
         state_prompt = self._get_state_prompt()
         actions = self.get_all_actions()
-        prompt = f"""You are {player} playing game Tic-Tac-Toe.
+        prompt0 = f"""You are {player} playing game Tic-Tac-Toe.
 
 ## Rules
 {INIT_PROMPT}
@@ -143,10 +143,18 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
 ## Your Turn
 You are {player}.
 The available actions are: {actions}.
-
-Please choose your action and provide your response by enclosing your choice in <s></s> tags.
-Reply with a SINGLE LINE with <s>{actions[0]}</s> and reasons with no more than 20 words.
-For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
+"""
+        if self.current_player_id == self.env_id:
+            prompt = prompt0 + f"""Please present your action within <action> </action> tags and tell your reasons with **no more than 20 words**.
+For example: <action>{actions[0]}</action> reason: <no more than 20 words>
+"""
+        else:
+            prompt = prompt0 + f"""
+You should first reason step-by-step about the current situation. 
+This reasoning process MUST be enclosed within <think> </think> tags. 
+Once you've finished your reasoning, you should choose an admissible action for current step and
+present it within <action> </action> tags.
+For example: <think>Reasoning</think> <action>{actions[0]}</action>
 """
         return prompt
 
@@ -308,7 +316,7 @@ For example: <s>{actions[0]}</s> reason: <NO MORE THAN 20 WORDS>
 
     def _parse_action(self, llm_output: str) -> Optional[str]:
         """Helper to extract action from LLM's raw output."""
-        pattern = r".*<s>\(\s*(\d+)\s*,\s*(\d+)\s*\)</s>.*"
+        pattern = r".*<action>\(\s*(\d+)\s*,\s*(\d+)\s*\)</action>.*"
         # text = "<s>(1, 1)</s>"  # 你从模型输出得到的字符串
         match = re.match(pattern, llm_output)
         if match:

@@ -42,7 +42,6 @@ class ThreadSafeCycle:
 # 环境测试命令：
 # python -m ragen.env.connect4.env
 
-# 未来开源的时候记得删了！！！！
 deepseek_keys = json.load(open('ragen/env/api-keys.json'))['deepseek']
 # deepseek_key = os.environ.get('DEEPSEEK_KEY')
 if not deepseek_keys:
