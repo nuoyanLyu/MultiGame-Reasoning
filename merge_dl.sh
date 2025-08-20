@@ -2,11 +2,11 @@
 
 # --- 用户配置部分 ---
 # 模型检查点所在的根目录
-ROOT_DIR="/root/autodl-tmp"
+ROOT_DIR="/root/autodl-tmp/tictactoe"
 # 合并后模型保存的根目录
-TAR_ROOT_DIR="/root/autodl-tmp/grpo"
+TAR_ROOT_DIR="/root/autodl-tmp/tictactoe/grpo"
 # Hugging Face 模型的路径
-HF_PATH="/root/autodl-tmp/Qwen3-1.7B"
+HF_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
 # --- 用户配置部分结束 ---
 
 
