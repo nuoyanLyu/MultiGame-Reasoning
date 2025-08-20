@@ -149,7 +149,9 @@ class LLMAgentProxy:
 			lm_inputs: DataProto = ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
 			lm_inputs.meta_info = dataproto.meta_info # TODO: setup vllm early stop when max length is reached. make sure this can be done
 			lm_outputs: DataProto = self.generate_sequences(lm_inputs)
+			# parse llm outputs -- so no need to parse action in the env
 			env_inputs: List[Dict] = ctx_manager.get_env_inputs(lm_outputs)
+			# print(env_inputs)
 			env_outputs: List[Dict] = es_manager.step(env_inputs)
 			if len(env_outputs) == 0: # all finished
 				break

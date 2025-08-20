@@ -145,17 +145,17 @@ You are {player}.
 The available actions are: {actions}.
 """
         if self.current_player_id == self.env_id:
-            prompt = prompt0 + f"""Please present your action within <action> </action> tags and tell your reasons with **no more than 20 words**.
-For example: <action>{actions[0]}</action> reason: <no more than 20 words>
+            prompt = prompt0 + f"""Please tell your reason in no more than 20 words and present your action within <action> </action> tags.
+For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
 """
         else:
-            prompt = prompt0 + f"""
-You should first reason step-by-step about the current situation. 
-This reasoning process MUST be enclosed within <think> </think> tags. 
-Once you've finished your reasoning, you should choose an admissible action for current step and
-present it within <action> </action> tags.
-For example: <think>Reasoning</think> <action>{actions[0]}</action>
-"""
+             prompt = prompt0 
+# You should first reason about the current situation in no more than 100 words.
+# Please output this process in the format of <think>reason</think>
+# Once you've finished your reasoning, you should choose an admissible action for current step and
+# present it within <action> </action> tags.
+# Note: Please simplify your reasoning in ** no more than 100 words**.
+# For example: <think> Your Reason </think> <action>{actions[0]}</action>
         return prompt
 
     def step(self, action: str) -> Tuple[str, float, bool, Dict]:
@@ -170,7 +170,9 @@ For example: <think>Reasoning</think> <action>{actions[0]}</action>
             observation: updated game prompt;
             info: dictionary
         """
-        action = self._parse_action(action)
+        print(action)
+        # 实际上模型调用的时候会生成format prompt，也会初步提取action信息，这里不需要模板匹配问题
+        action = self._parse_action_trainer(action)
         available_actions = self.get_all_actions()
         info = {"action_is_effective": None, "action_is_valid": None, "success": None}
         train_id = 1 - self.env_id
@@ -219,7 +221,6 @@ For example: <think>Reasoning</think> <action>{actions[0]}</action>
         # 环境agent采取行动
         self.current_player_id = self.env_id
         env_prompt = self.render()
-        # print(env_prompt)
         valid = False
         try_count = 0
         while not valid and try_count < self.max_env_try:
@@ -227,7 +228,7 @@ For example: <think>Reasoning</think> <action>{actions[0]}</action>
             # 同样处理action、更新环境的流程
             # 看一下deepseek输出的是什么东西？是否长篇大论
             # print(env_output)
-            action = self._parse_action(env_output)
+            action = self._parse_action_env(env_output)
             # print(action)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution
@@ -314,11 +315,24 @@ For example: <think>Reasoning</think> <action>{actions[0]}</action>
                     actions0.append((i + 1, j + 1))
         return actions0
 
-    def _parse_action(self, llm_output: str) -> Optional[str]:
-        """Helper to extract action from LLM's raw output."""
-        pattern = r".*<action>\(\s*(\d+)\s*,\s*(\d+)\s*\)</action>.*"
-        # text = "<s>(1, 1)</s>"  # 你从模型输出得到的字符串
-        match = re.match(pattern, llm_output)
+    def _parse_action_trainer(self, action: str) -> Optional[Tuple]:
+        """Helper to extract action from trainer's raw output."""
+        pattern = r"\(\s*(\d+)\s*,\s*(\d+)\s*\)"
+        match = re.search(pattern, action)
+        if match:
+            row = int(match.group(1))
+            col = int(match.group(2))
+            # print("匹配成功:", row, col)
+            action = (row, col)
+        else:
+            # print("匹配失败")
+            action = None
+        return action
+    
+    def _parse_action_env(self, llm_output: str) -> Optional[Tuple]:
+        """Helper to extract action from env's raw output."""
+        pattern = r"<answer>\(\s*(\d+)\s*,\s*(\d+)\s*\)</answer>"
+        match = re.search(pattern, llm_output)
         if match:
             row = int(match.group(1))
             col = int(match.group(2))

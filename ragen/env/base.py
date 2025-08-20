@@ -241,7 +241,7 @@ class EnvPlayer():
                     'type': 'deepseek',
                     'model': 'deepseek-chat'
                 })
-            elif 'Qwen' in model_name:
+            elif 'game' in model_name or 'Qwen' in model_name:
                 port = player_info[i]['port']
                 client = OpenAI(
                     api_key="EMPTY",  # vLLM 无需认证密钥
@@ -250,7 +250,7 @@ class EnvPlayer():
                 self.players.append({
                     'type': 'qwen',
                     'client': client,
-                    'model': f"/data1/lvnuoyan/llm_model/{model_name}"
+                    'model': f"/root/autodl-tmp/{model_name}"
                 })
             else:
                 client = OpenAI(
@@ -302,7 +302,7 @@ class EnvPlayer():
             model=model,
             messages=message0,
             temperature=self.temperature,
-            max_tokens=200,
+            max_tokens=600,
         )
         return response.choices[0].message.content
 
@@ -326,6 +326,6 @@ if __name__ == "__main__":
             model='deepseek-chat',
             messages=message,
             # temperature=self.temperature,
-            max_tokens=200,
+            max_tokens=600,
         )
     print(response.choices[0].message.content)
