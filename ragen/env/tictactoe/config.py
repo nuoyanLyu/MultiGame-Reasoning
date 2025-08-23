@@ -21,7 +21,7 @@ class TicTacToeEnvConfig:
     # TODO：后续需要修改，看看self-play需要如何设置
     player_info: List[Dict[str, Any]] = field(
         default_factory=lambda: [{'model_name': 'deepseek'}]
-        # default_factory=lambda: [{'model_name': 'tictactoe/grpo/game_20', 'port': '2020'}]
+        # default_factory=lambda: [{'model_name': 'tictactoe/grpo/game_60', 'port': '4040'}]
     )
     temperature: float = 0.5
     seed: int = 123

@@ -170,7 +170,7 @@ For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
             observation: updated game prompt;
             info: dictionary
         """
-        print(action)
+        # print(action)
         # 实际上模型调用的时候会生成format prompt，也会初步提取action信息，这里不需要模板匹配问题
         action = self._parse_action_trainer(action)
         available_actions = self.get_all_actions()
