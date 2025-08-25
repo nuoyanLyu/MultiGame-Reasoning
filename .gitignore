@@ -117,4 +117,9 @@ tests/e2e/toy_examples/deepspeed/synchronous/output.txt
 # log file information
 logs/
 
+# api-key files
 ragen/env/api-keys.json
+
+# 一些测试脚本等信息
+test_sh.sh
+my_test/

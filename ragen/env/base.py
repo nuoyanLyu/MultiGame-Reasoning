@@ -230,7 +230,7 @@ class EnvPlayer():
         self.temperature = temperature
         self.num_players = num_players
         assert self.num_players == len(player_info) + 1
-
+        # print(player_info[0]['model_name'], player_info[0]['port'])
         # 存储玩家信息，不直接初始化带key的client
         self.players = []
         for i in range(self.num_players - 1):
@@ -271,7 +271,6 @@ class EnvPlayer():
             player_id: 玩家ID (0 表示第一个非训练模型的 Player)
         """
         assert player_id < self.num_players - 1
-
         # 组装消息
         if self.system_prompt:
             message0 = [
@@ -282,7 +281,7 @@ class EnvPlayer():
             message0 = [{"role": "user", "content": message}]
 
         player = self.players[player_id]
-
+        # print(player)
         # 根据类型动态获取 client
         if player['type'] == 'deepseek':
             client = OpenAI(
