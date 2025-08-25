@@ -13,41 +13,41 @@ BASE_MODEL="Qwen2.5-1.5B-Instruct"
 MODEL_DIR="$ROOT_DIR/$TRAIN_ENV/grpo"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
-START=60
+START=20
 END=200
 STEP=20
 
-# 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
-TIMESTAMP=$(date +"%m-%d-%H-%M")
-
 for ((i=$START; i<=$END; i+=$STEP)); do
     echo "===== Round $i ====="
+    # 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
+    # 每一轮都获取 这样日志不会被覆盖
+    TIMESTAMP=$(date +"%m-%d-%H-%M")
 
     if [[ $i -eq 0 ]]; then
         # 设置的是纯self-play，最开始其实也可以通过调用API的方式进行
         model_name="$BASE_MODEL"
-        model_path="$ROOT_DIR/$model_name"
+        model_path="$model_name"
     else
         model_name="game_${i}"
-        model_path="$MODEL_DIR/$model_name"
+        model_path="$TRAIN_ENV/grpo/$model_name"
     fi
 
     # [1] 启动 vLLM serve
     echo "[INFO] Starting vLLM for $model_path ..."
-    CUDA_VISIBLE_DEVICES=2 \
-    vllm serve "$model_path" \
+    setsid env CUDA_VISIBLE_DEVICES=2 vllm serve "$ROOT_DIR/$model_path" \
         --port 4040 \
         --max-model-len 6000 \
         --host 0.0.0.0 \
         --gpu-memory-utilization 0.9 \
         > "$LOG_DIR/vllm_${TIMESTAMP}.log" 2>&1 &
     vllm_pid=$!
+    pgid=$(ps -o pgid= -p "$vllm_pid" | tr -d ' ')
 
     echo "[INFO] Waiting for vLLM to load..."
     sleep 60
 
     # [2] 运行训练
-    player_info="{model_name: '${TRAIN_ENV}/grpo/game_${i}', port: '4040'}"
+    player_info="{model_name: '${model_path}', port: '4040'}"
     echo "[INFO] Set Env Player info $player_info"
     WANDB_MODE=offline \
     python train.py \
@@ -70,11 +70,17 @@ for ((i=$START; i<=$END; i+=$STEP)); do
         --backend fsdp \
         --hf_model_path "$ROOT_DIR/$BASE_MODEL" \
         --local_dir "$ROOT_DIR/$TRAIN_ENV/global_step_$((i + STEP))/actor" \
-        --output "$MODEL_DIR/game_$((i + STEP))"
+        --target_dir "$MODEL_DIR/game_$((i + STEP))"
 
     # [4] 杀掉 vLLM serve
-    echo "[INFO] Killing vLLM serve (pid $vllm_pid)"
-    kill -9 $vllm_pid
+    # [4] 杀掉 vLLM serve，通过进程组的方式打包送走
+    echo "[INFO] Killing vLLM serve (PID $vllm_pid, PGID $pgid)"
+    kill -9 -"$pgid" || true
+    sleep 2
+    pkill -9 -f "vllm" || true
+    # check GPU memory确定GPU已经空出来了
+    echo "[INFO] Checking GPU memory..."
+    nvidia-smi
 
     # 删除旧模型目录（如果存在）
     MODEL_BEFORE="$ROOT_DIR/$TRAIN_ENV/global_step_${i}"

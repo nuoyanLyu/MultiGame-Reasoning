@@ -145,9 +145,7 @@ You are {player}.
 The available actions are: {actions}.
 """
         if self.current_player_id == self.env_id:
-            prompt = prompt0 + f"""Please tell your reason in no more than 20 words and present your action within <action> </action> tags.
-For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
-"""
+            prompt = prompt0 + f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
         else:
              prompt = prompt0 
 # You should first reason about the current situation in no more than 100 words.
@@ -228,7 +226,8 @@ For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
             # 同样处理action、更新环境的流程
             # 看一下deepseek输出的是什么东西？是否长篇大论
             # print(env_output)
-            action = self._parse_action_env(env_output)
+            # 降低env_output的匹配精确度，环境agent并不需要精确匹配
+            action = self._parse_action_env(env_output, strict=False)
             # print(action)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution
@@ -237,12 +236,15 @@ For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
             try_count += 1  
         if not valid:
             # TODO:对手失误，算作agent胜利 OR 平局？感觉都不太合理，给一个中间的奖励？
-            reward = 0.5
+            # 尽量不要出现这个情况，理论上应该是一直等到环境agent有动作才好——
+            # 甚至应该随机选一个作为动作才更加合理
+            reward = 0
             done = True
             draw_prompt = 'Your opponent made a mistake! No winner.'
-            info['action_is_effective'] = True
+            info['action_is_effective'] = False
             info['action_is_valid'] = True
-            info['success'] = True
+            # 不算成功吧，要不然会混淆模型训练结果
+            info['success'] = False
             self.reset()
             return draw_prompt, reward, done, info
         # 对手正确，更新环境
@@ -329,7 +331,7 @@ For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
             action = None
         return action
     
-    def _parse_action_env(self, llm_output: str) -> Optional[Tuple]:
+    def _parse_action_env(self, llm_output: str, strict=False) -> Optional[Tuple]:
         """Helper to extract action from env's raw output."""
         pattern = r"<answer>\(\s*(\d+)\s*,\s*(\d+)\s*\)</answer>"
         match = re.search(pattern, llm_output)
@@ -339,8 +341,19 @@ For example: <think> Your Reason </think> <answer>{actions[0]}</answer>
             # print("匹配成功:", row, col)
             action = (row, col)
         else:
-            # print("匹配失败")
-            action = None
+            # 环境player并不需要非常精确的匹配、指令遵循等信息
+            if not strict:
+                pattern = r"\(\s*(\d+)\s*,\s*(\d+)\s*\)"
+                match = re.search(pattern, llm_output)
+                if match:
+                    row = int(match.group(1))
+                    col = int(match.group(2))
+                    # print("匹配成功:", row, col)
+                    action = (row, col)
+                else:
+                    action = None
+            else:
+                action = None
         return action
     
     def _update_state(self, action: str, player_id):
