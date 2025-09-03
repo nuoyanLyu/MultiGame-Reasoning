@@ -123,3 +123,4 @@ ragen/env/api-keys.json
 # 一些测试脚本等信息
 test_sh.sh
 my_test/
+reason_test/*.json

@@ -88,7 +88,9 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
         self.max_env_try = self.config.max_env_try
-        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, temperature=self.config.temperature)
+        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
+                                    temperature=self.config.temperature,
+                                    model_path=self.config.model_path)
         self.env_id = None
         self.current_player_id = None
         self.history = []
