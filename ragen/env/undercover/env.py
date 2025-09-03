@@ -1,132 +1,113 @@
 import numpy as np
 from typing import List, Optional, Tuple, Dict
 import re
-
 from openai import NotFoundError
-
-from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed
-from .config import TicTacToeEnvConfig
 import gymnasium as gym
 import random
+import json
+
+from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed, MultiGameEnv
+from .config import UndercoverEnvConfig
 
 
-system_prompt = "You are an expert in playing the Game TicTacToe."
 
-INIT_PROMPT = f"""
-## Game Rules: TicTacToe
+system_prompt = "You are an expert in playing the Game Undercover."
 
-**Objective**: Be the first player to connect {TicTacToeEnvConfig().win_condition} of your pieces in a continuous line.
+INIT_PROMPT = f"""Game Rule: Who's the Undercover Agent
 
-**Player Pieces**:
-- Player 1: 'O'
-- Player 2: 'X'
-- Empty Slot: '.'
+Player Roles:
+- Civilian: UndercoverEnvConfig().player_num - 1 players receive the same keyword.
+- Undercover Agent: 1 player receives a different, but thematically related, keyword.
 
-**How to Play**:
-1. The game is played on a {TicTacToeEnvConfig().rows}x{TicTacToeEnvConfig().cols} vertical grid.
-2. Players take turns dropping one of their pieces into any available column from the top.
-3. The piece falls to the lowest unoccupied slot in that column.
+Objective:
+- Civilian: Identify and vote out the Undercover Agent.
+- Undercover Agent: Avoid being identified and voted out, and cause the civilians to vote out each other.
 
-**Winning Conditions**:
-The game ends when a player forms a line of {TicTacToeEnvConfig().win_condition} of their own pieces. The line can be:
+How to Play:
+- At the beginning of each round, a word is secretly assigned to each player. All civilians receive one word, while the undercover agent receives a different one.
+- Players take turns describing their assigned word using a single sentence. The key is to be subtle, avoiding words that are too obvious to avoid being found out by the undercover agent, but clear enough for fellow civilians to understand.
+- After everyone has spoken, all players vote on who they believe is the undercover agent.
+- The player with the most votes is eliminated from the game.
 
-1.  **Horizontal** (side-by-side in a row)
-    *Example of a horizontal win for Player 1 ('O'):*
-    ```
-    X . . 
-    O O O   <-- 3 'O's in row 2
-    . X . 
-    ```
+Note:
+- **The description must exclude the original word.**
+- **The description must be different from others.**
 
-2.  **Vertical** (stacked on top of each other in a column)
-    *Example of a vertical win for Player 2 ('X'):*
-    ```
-    . X O 
-    O X O   <-- 3 'X's in column 2
-    . X . 
-    ```
-
-3.  **Diagonal** (connected at an angle)
-    *Example of a diagonal win (bottom-left to top-right) for Player 1:*
-    ```
-    . . O 
-    . O X   <-- 3 'O's in a diagonal line
-    O X . 
-    ```
-    *Example of another diagonal win (top-left to bottom-right) for Player 2:*
-    ```
-    X . O 
-    . X O   <-- 3 'X's in a diagonal line
-    . O X 
-    ```
-
-**Draw Condition**:
-If the entire grid is filled with pieces and no player has won, the game is a draw.
-
+Winning Conditions:
+- Civilian Win: The undercover agent is voted out and eliminated.
+- Undercover Agent Win: The number of remaining players is reduced to two, with the undercover agent still in the game.
 """
 
 
-class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
+class UndercoverGameEnv(MultiGameEnv):
     """
-    A TicTactoe game environment.
-    Inherits from LLMGameEnv and implements the game-specific logic.
+    Undercover Game Environment.
+    Maintain game state and process. Call and process trainer and env_player.
     """
     def __init__(self, config=None):
-        BaseDiscreteActionEnv.__init__(self)
-        self.config = config if config is not None else TicTacToeEnvConfig()
-        # self.ACTION_SPACE = gym.spaces.discrete.Discrete(2, start=self.config.action_space_start)
-        self.ACTION_SPACE = []
-        for i in range(self.config.rows):
-            for j in range(self.config.cols):
-                # save as tuples to make it hashable and comparable
-                self.ACTION_SPACE.append((i + 1, j + 1))
-        self.cols = self.config.cols
-        self.rows = self.config.rows
+        MultiGameEnv.__init__(self)
+        self.config = config if config is not None else UndercoverEnvConfig()
         self.seed = int(self.config.seed)
-        self.win_condition = self.config.win_condition
-        self.render_cache = None
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
         self.max_env_try = self.config.max_env_try
-        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
-                                    temperature=self.config.temperature,
-                                    model_path=self.config.model_path)
-        self.env_id = None
+        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, temperature=self.config.temperature)
+        self.train_id = None
         self.current_player_id = None
-        self.history = []
-        self.game_state = np.zeros((self.rows, self.cols), dtype=int)
-        self.last_move: Optional[tuple[int, int]] = None
+        # game_state应该是一个列表，存储每个玩家历史发言
+        self.history_info = ""
+        self.conversation = []
+        for i in range(self.config.player_num):
+            # 第i个列表就是第i个玩家的发言历史——后续可视化的时候要好好设计一下
+            self.conversation.append([])
+        self.round = 0  # record game round
+        # 存储每个人的词以及对应的身份信息
+        self.words = []
+        self.wordlist = json.load(open("ragen/env/undercover/wordshuffle.json"))
+        self.identities = []
         self.reset()
 
-    def reset(self, seed=None, **kwargs):
-        """Initializes the board as a 3x3 grid of zeros."""
+    def reset(self, seed):
+        """Initializes the conversation history, choose words and identities"""
         self.seed = seed
         seed_everything(seed)
-        self.game_state = np.zeros((self.rows, self.cols), dtype=int)
-        # 根据随机数种子初始化一个棋局，打算是根据种子选取下棋步骤以及位置，
-        # 从而保证不同的初始状态、不全是空棋盘开始
-        # 重置环境Player对应的玩家顺序
-        self.env_id = random.choice([0, 1])
-        # 初始化——随机进行0 - 2轮下棋作为初始棋局，3局以内肯定不会上来就终止
-        pre_action_step = random.choice([0, 1])
-        for step in range(pre_action_step):
-            # 每一轮内两个玩家分别下棋
-            for p in range(2):
-                action0 = random.choice(self.get_all_actions())
-                self._update_state(action0, p)
-                self.history.append({
-                    "player": p,
-                    "action": action0
-                })
+        self.conversation = []
+        for i in range(self.config.player_num):
+            # 第i个列表就是第i个玩家的发言历史——后续可视化的时候要好好设计一下
+            self.conversation.append([])
+        # trainer选择顺序
+        self.train_id = random.choice(list(range(self.config.player_num)))
+        # 初始化——选择词汇信息
+        word_pair = random.choice(self.wordlist, self.config.player_num)
+        # 选择undercover的ID信息
+        undercover_id = random.choice(list(range(self.config.player_num)))
+        # 根据undercoverID记录identity信息以及word信息
+        self.words = [word_pair[1]] * self.config.player_num
+        # 认为1号是好人词汇、0号是卧底词
+        self.words[undercover_id] = word_pair[0]
+        self.identities = ["Agents"] * self.config.player_num
+        self.identities[undercover_id] = "Undercover"
         # 如果环境是玩家0先手，环境先下一步
-        if self.env_id == 0:
-            action = random.choice(self.get_all_actions())
-            self._update_state(action, 0)
-            self.history.append({
-                "player": 0,
-                "action": action
-            })
-        self.current_player_id = 1 - self.env_id
+        if self.train_id != 0:
+            pass
+
+    def history_render(self) -> str:
+        """"Generate description for history conversation information."""
+        if self.round == 0 and not self.history_info:
+            return "There is no history information."
+        # 可能需要调用API进行精简或删减
+        # 不应该使用循环的方式反复生成，生成后不断叠加、可以反复调用
+        # info_str = ""
+        # for i in range(self.round):
+        #     info_str += f"Round {i + 1}:\n"
+        #     for j in range(self.config.player_num):
+        #         info_str += f"Player {j + 1}: {self.conversation[j][i]}\n"
+        else:
+            # 判断是否超出对话长度，如果过长直接删除
+            if len(self.history_info.split()) > 250:
+                # 调用API进行历史对话的精简
+
+
 
     def render(self) -> str:
         # 和之前的get_state_prompt相同的作用 生成当前棋局的信息
@@ -134,12 +115,12 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         player = f'Player {self.current_player_id + 1}'
         state_prompt = self._get_state_prompt()
         actions = self.get_all_actions()
-        prompt0 = f"""You are {player} playing game Tic-Tac-Toe.
+        prompt0 = f"""You are {player} playing game Undercover.
 
 ## Rules
 {INIT_PROMPT}
 
-## Current Game State
+## History of Conversation
 {state_prompt}
 
 ## Your Turn
@@ -150,13 +131,28 @@ The available actions are: {actions}.
             prompt = prompt0 + f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
         else:
              prompt = prompt0 
-# You should first reason about the current situation in no more than 100 words.
-# Please output this process in the format of <think>reason</think>
-# Once you've finished your reasoning, you should choose an admissible action for current step and
-# present it within <action> </action> tags.
-# Note: Please simplify your reasoning in ** no more than 100 words**.
-# For example: <think> Your Reason </think> <action>{actions[0]}</action>
         return prompt
+
+
+
+
+class UndercoverEnv(BaseLanguageBasedEnv, gym.Env):
+    """
+    A Undercover game environment.
+    Inherits from LLMGameEnv and implements the game-specific logic.
+    """
+    def __init__(self, config=None):
+        BaseLanguageBasedEnv.__init__(self)
+        self.env = UndercoverGameEnv(config)
+
+    def reset(self, seed=None, **kwargs):
+        """Initializes the conversation history, choose words and identities"""
+        self.env.reset(seed)
+
+    def render(self) -> str:
+        # 和之前的get_state_prompt相同的作用 生成当前棋局的信息
+        # INIT_prompt，state_prompt以及action_prompt
+        return self.env.render()
 
     def step(self, action: str) -> Tuple[str, float, bool, Dict]:
         """

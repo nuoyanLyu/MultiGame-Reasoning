@@ -4,16 +4,28 @@ import re
 import tqdm
 import json
 import argparse
+import os
+import time
+from datetime import datetime
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port', type=str, default='7777')
-parser.add_argument('--model_name', type=str, default='grpo/game_20')
+parser.add_argument('--port', type=str, default='20202')
+# tictactoe/grpo/game_200
+# Qwen2.5-1.5B-Instruct
+parser.add_argument('--model_name', type=str, default='tictactoe/grpo/game_200')
 # model_name = 'Qwen3-1.7B'
 args = parser.parse_args()
 
 port = args.port
 model_name = args.model_name
+root_path = '/data1/lvnuoyan'
+
+# 禁用代理（只在本脚本有效）——服务器联网有问题，这样保证正常访问VLLM load的模型
+for key in ["http_proxy", "https_proxy", "all_proxy", 
+            "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+    os.environ.pop(key, None)
+
 # 配置 OpenAI 客户端（兼容 vLLM 的 OpenAPI 接口）
 client = OpenAI(
     api_key="EMPTY",  # vLLM 无需认证密钥，任意字符串均可
@@ -23,7 +35,7 @@ client = OpenAI(
 def llm_output(text: str) -> str:
     try:
         response = client.chat.completions.create(
-            model=f"/root/autodl-tmp/{model_name}",  # 使用模型路径，如通过--served-model-name指定名称需与 vLLM 服务启动时指定的名称一致
+            model=f"{root_path}/llm_model/{model_name}",  # 使用模型路径，如通过--served-model-name指定名称需与 vLLM 服务启动时指定的名称一致
             messages=[{
                 "role": "user",
                 "content": f"{text}"
@@ -49,6 +61,7 @@ def extract_solution(solution_str, method="strict"):
             # take the last solution
             final_answer = solutions[-1].replace(",", "").replace("$", "")
     elif method == "flexible":
+        # 但是这个flexible匹配明明已经是宽松版本了，但还是匹配不到——可能还是训废了？        
         answer = re.findall("(\\-?[0-9\\.\\,]+)", solution_str)
         final_answer = None
         if len(answer) == 0:
@@ -85,15 +98,15 @@ def test_math(method='strict'):
     return accs, answers
 
 
-path0 = '/root/autodl-tmp/reasoning/'
+path0 = f'{root_path}/reasoning'
 math = datasets.load_dataset("parquet", 
-              data_files={'train': path0 + 'gsm8k/train.parquet', 'test': path0 + 'gsm8k/test.parquet'})
+              data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
 
 accs, answers = test_math('flexible')
 acc0 = sum(accs) / len(accs)
 print('total acc:', acc0)
-
+TIME = datetime.now().strftime("%m-%d-%H-%M")
 # 删除特殊字符
 model_name = model_name.replace('/', '').replace('\\', '')
-with open(f'{model_name}-gsm8k-answer.json', 'w') as f:
+with open(f'{model_name}-gsm8k-{TIME}.json', 'w') as f:
     f.write(json.dumps(answers))
