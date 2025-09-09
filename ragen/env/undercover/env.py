@@ -106,6 +106,7 @@ class UndercoverGameEnv(MultiGameEnv):
             # 判断是否超出对话长度，如果过长直接删除
             if len(self.history_info.split()) > 250:
                 # 调用API进行历史对话的精简
+                pass
 
 
 

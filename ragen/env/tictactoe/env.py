@@ -170,7 +170,6 @@ The available actions are: {actions}.
             observation: updated game prompt;
             info: dictionary
         """
-        # print(action)
         # 实际上模型调用的时候会生成format prompt，也会初步提取action信息，这里不需要模板匹配问题
         action = self._parse_action_trainer(action)
         available_actions = self.get_all_actions()
@@ -223,26 +222,32 @@ The available actions are: {actions}.
         env_prompt = self.render()
         valid = False
         try_count = 0
+        action_in = False
         while not valid and try_count < self.max_env_try:
             env_output = self.env_player.act(env_prompt, 0)
             # 同样处理action、更新环境的流程
             # 看一下deepseek输出的是什么东西？是否长篇大论
             # print(env_output)
             # 降低env_output的匹配精确度，环境agent并不需要精确匹配
-            action = self._parse_action_env(env_output, strict=False)
+            action = self._parse_action_env(env_output, strict=True)
             # print(action)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution
             if action in available_actions:
                 valid = True
+                action_in = True
             try_count += 1  
         if not valid:
+            print(env_output)
             # TODO:对手失误，算作agent胜利 OR 平局？感觉都不太合理，给一个中间的奖励？
             # 尽量不要出现这个情况，理论上应该是一直等到环境agent有动作才好——
             # 甚至应该随机选一个作为动作才更加合理
             reward = 0
             done = True
-            draw_prompt = 'Your opponent made a mistake! No winner.'
+            if action_in:
+                draw_prompt = 'Your opponent action is wrong! No winner.'
+            else:
+                draw_prompt = 'Your opponent made a mistake! No winner.'
             info['action_is_effective'] = False
             info['action_is_valid'] = True
             # 不算成功吧，要不然会混淆模型训练结果
@@ -335,7 +340,7 @@ The available actions are: {actions}.
     
     def _parse_action_env(self, llm_output: str, strict=False) -> Optional[Tuple]:
         """Helper to extract action from env's raw output."""
-        pattern = r"<answer>\(\s*(\d+)\s*,\s*(\d+)\s*\)</answer>"
+        pattern = r"<answer>\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*</answer>"
         match = re.search(pattern, llm_output)
         if match:
             row = int(match.group(1))

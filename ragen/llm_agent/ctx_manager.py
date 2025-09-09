@@ -10,6 +10,7 @@ import numpy as np
 from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass
 import re
+import swanlab
 from verl import DataProto
 from verl.utils.dataset.rl_dataset import collate_fn
 from transformers import AutoTokenizer
@@ -147,6 +148,8 @@ class ContextManager:
 
     def _parse_response(self, response: str) -> List:
         pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>' if self.config.agent_proxy.enable_think else r'<answer>(.*?)</answer>'
+        text = swanlab.Text(response)
+        swanlab.log({'raw_response': text})
         match = re.search(pattern, response, re.DOTALL)
         if not match:
             # think_content, action_content, actions = "", "", [] # do not remove this kind of invalid string
@@ -265,10 +268,12 @@ class ContextManager:
 
             # NOTE: this assertion is important for loss mask computation        
             assert all(msg["role"] == "assistant" for msg in messages[2::2])
-
+            # 所以是通过assistant计算的loss并不是通过<think>之类的token——也合理
             text = self.tokenizer.apply_chat_template(messages, add_generation_prompt=(not prepare_for_update), tokenize=False)
+            # NOTE：这个应该要进行修改，这种设定并不合理，整个chat_template都应该修改
             if not prepare_for_update:
                 if self.config.agent_proxy.enable_think:
+                    # 但是是否有必要增加这个修改？
                     text += "<think>" # force the LLM to think before answering
                 else:
                     text += "<answer>" # force the LLM to answer
