@@ -17,6 +17,7 @@ def main(config):
 	# detect config name from python -m ragen.llm_agent.agent_proxy --config_name frozen_lake
 	os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 	os.environ["CUDA_VISIBLE_DEVICES"] = str(config.system.CUDA_VISIBLE_DEVICES)
+	
 	tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
 	actor_wg = VllmWrapperWg(config, tokenizer)
 	proxy = LLMAgentProxy(config, actor_wg, tokenizer)
@@ -26,6 +27,7 @@ def main(config):
 	end_time = time.time()
 	print(f'rollout time: {end_time - start_time} seconds')
 	# print rollout rewards from the rm_scores
+	print(rollouts.batch)
 	rm_scores = rollouts.batch["rm_scores"]
 	metrics = rollouts.meta_info["metrics"]
 	avg_reward = rm_scores.sum(-1).mean().item()

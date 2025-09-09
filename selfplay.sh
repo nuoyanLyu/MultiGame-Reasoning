@@ -39,7 +39,7 @@ for ((i=$START; i<=$END; i+=$STEP)); do
         --max-model-len 6000 \
         --host 0.0.0.0 \
         --gpu-memory-utilization 0.9 \
-        > "$LOG_DIR/vllm_${TIMESTAMP}.log" 2>&1 &
+        > "$LOG_DIR/vllm_monitor.log" 2>&1 &
     vllm_pid=$!
     pgid=$(ps -o pgid= -p "$vllm_pid" | tr -d ' ')
 
