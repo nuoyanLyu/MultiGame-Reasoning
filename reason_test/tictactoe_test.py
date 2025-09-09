@@ -4,6 +4,7 @@ import os
 from openai import OpenAI
 import random
 import re
+from verl.utils import hf_tokenizer
 <<<<<<< HEAD
 from collections import Counter
 from verl.utils import hf_tokenizer
@@ -16,6 +17,9 @@ from verl.utils import hf_tokenizer
 # for key in ["http_proxy", "https_proxy", "all_proxy", 
 #             "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
 #     os.environ.pop(key, None)
+
+root_path = "/data1/lvnuoyan/llm_model"
+tokenizer = hf_tokenizer(f"{root_path}/tictactoe/grpo/game_220")
 
 root_path = "/data1/lvnuoyan/llm_model"
 tokenizer = hf_tokenizer(f"{root_path}/tictactoe/grpo/game_220")
@@ -78,6 +82,7 @@ for t in trange(100):
 =======
         print(output)
         output = "<think>" + output
+        output = "<think>" + output
 >>>>>>> 4bfbf071d26bb20a27213c160aeb428eaf8df6c5
         pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>'
         match = re.search(pattern, output, re.DOTALL)
@@ -111,7 +116,6 @@ for t in trange(100):
                 print('env_player-wrong-output')
             elif "Failed! " in prompt:
                 info_list.append('fail')
-<<<<<<< HEAD
                 print('fail')
             break
 
@@ -120,6 +124,4 @@ counter = Counter(info_list)
 total = len(info_list)
 for key, value in counter.items():
     print(f"{key}: {value / total:.2%}")
-=======
-            break 
->>>>>>> 4bfbf071d26bb20a27213c160aeb428eaf8df6c5
+ 
