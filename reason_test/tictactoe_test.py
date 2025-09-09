@@ -4,10 +4,14 @@ import os
 from openai import OpenAI
 import random
 import re
+from verl.utils import hf_tokenizer
 
 for key in ["http_proxy", "https_proxy", "all_proxy", 
             "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
     os.environ.pop(key, None)
+
+root_path = "/data1/lvnuoyan/llm_model"
+tokenizer = hf_tokenizer(f"{root_path}/tictactoe/grpo/game_220")
 
 # 配置 OpenAI 客户端（兼容 vLLM 的 OpenAPI 接口）
 client = OpenAI(
@@ -16,18 +20,19 @@ client = OpenAI(
 )
 
 def trainer_output(text: str) -> str:
+    message = [{"role": "system", "content": "You're a helpful assistant. "},
+               {"role": "user", "content": text}]
+    prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
+    prompt += "<think>"
     try:
-        response = client.chat.completions.create(
-            model=f"/data1/lvnuoyan/llm_model/tictactoe/grpo/game_200",  # 使用模型路径，如通过--served-model-name指定名称需与 vLLM 服务启动时指定的名称一致
-            messages=[{
-                "role": "user",
-                "content": f"{text}"
-            }],
-            max_tokens=200,  # 控制生成文本长度[4](@ref)
-            temperature=0.5,  # 控制生成随机性（0-1，越高越随机）[4](@ref)
-            stream=False
+        response = client.completions.create(
+            model=f"{root_path}/tictactoe/grpo/game_220",
+            prompt=prompt,
+            max_tokens=600,
+            temperature=0.5,
         )
-        return response.choices[0].message.content.strip()
+        # print(response.choices[0].text)
+        return response.choices[0].text
     except Exception as e:
         raise RuntimeError(f"API 调用失败：{str(e)}")
 
@@ -49,6 +54,7 @@ for t in trange(100):
         # 得到trainer的行动
         output = trainer_output(prompt + prompt0)
         print(output)
+        output = "<think>" + output
         pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>'
         match = re.search(pattern, output, re.DOTALL)
         if not match:
@@ -70,4 +76,4 @@ for t in trange(100):
                 info_list.append('env_player-invalid-output')
             elif "Failed! " in prompt:
                 info_list.append('fail')
-            break
+            break 

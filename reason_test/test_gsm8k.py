@@ -7,6 +7,7 @@ import argparse
 import os
 import time
 from datetime import datetime
+from verl.utils import hf_tokenizer
 
 
 parser = argparse.ArgumentParser()
@@ -20,6 +21,7 @@ args = parser.parse_args()
 port = args.port
 model_name = args.model_name
 root_path = '/data1/lvnuoyan'
+tokenizer = hf_tokenizer(f"{root_path}/llm_model/{model_name}")
 
 # 禁用代理（只在本脚本有效）——服务器联网有问题，这样保证正常访问VLLM load的模型
 for key in ["http_proxy", "https_proxy", "all_proxy", 
@@ -48,6 +50,18 @@ def llm_output(text: str) -> str:
     except Exception as e:
         raise RuntimeError(f"API 调用失败：{str(e)}")
 
+def reformat_prompt(prompt0):
+    # 将prompt句子末尾的 Let\'s think step by step and output the final answer after "####".
+    # 替换为Let\'s think step by step and output your think and final answer in this format: 
+    # <think> [your thought] </think> <answer> [your answer] </answer>
+    prompt = prompt0.replace("Let\'s think step by step and output the final answer after \"####\".", 
+                             "Let\'s think step by step and output your think and final answer in this format: <think> [Your thoughts] </think> <answer> [your answer] </answer>")
+    message = [{"role": "system", "content": "You're a helpful assistant. "},
+               {"role": "user", "content": prompt}]
+    # apply_chat_template
+    prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
+    prompt += "<think>"
+    return prompt
 
 def extract_solution(solution_str, method="strict"):
     assert method in ["strict", "flexible"]
@@ -101,7 +115,9 @@ def test_math(method='strict'):
 path0 = f'{root_path}/reasoning'
 math = datasets.load_dataset("parquet", 
               data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
+# print(math['test']['prompt'][0])
 
+# exit(0)
 accs, answers = test_math('flexible')
 acc0 = sum(accs) / len(accs)
 print('total acc:', acc0)
