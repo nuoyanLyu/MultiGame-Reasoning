@@ -4,22 +4,14 @@ import os
 from openai import OpenAI
 import random
 import re
-from verl.utils import hf_tokenizer
-<<<<<<< HEAD
 from collections import Counter
 from verl.utils import hf_tokenizer
 tokenizer = hf_tokenizer("/root/autodl-tmp/tictactoe/grpo/game_220")
-=======
-from verl.utils import hf_tokenizer
->>>>>>> 4bfbf071d26bb20a27213c160aeb428eaf8df6c5
-
 
 # for key in ["http_proxy", "https_proxy", "all_proxy", 
 #             "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
 #     os.environ.pop(key, None)
 
-root_path = "/data1/lvnuoyan/llm_model"
-tokenizer = hf_tokenizer(f"{root_path}/tictactoe/grpo/game_220")
 
 root_path = "/data1/lvnuoyan/llm_model"
 tokenizer = hf_tokenizer(f"{root_path}/tictactoe/grpo/game_220")
@@ -32,16 +24,6 @@ client = OpenAI(
 
 model_path = '/root/autodl-tmp'
 def trainer_output(text: str) -> str:
-<<<<<<< HEAD
-    messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, 
-            {'role': 'user', 'content': text}]
-    text = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-    text += '<think>'
-    try:
-        response = client.completions.create(
-            model="/root/autodl-tmp/tictactoe/grpo/game_220",
-            prompt=text,
-=======
     message = [{"role": "system", "content": "You're a helpful assistant. "},
                {"role": "user", "content": text}]
     prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
@@ -50,7 +32,6 @@ def trainer_output(text: str) -> str:
         response = client.completions.create(
             model=f"{root_path}/tictactoe/grpo/game_220",
             prompt=prompt,
->>>>>>> 4bfbf071d26bb20a27213c160aeb428eaf8df6c5
             max_tokens=600,
             temperature=0.5,
         )
@@ -76,14 +57,9 @@ for t in trange(100):
         # print(prompt + prompt0)
         # 得到trainer的行动
         output = trainer_output(prompt + prompt0)
-<<<<<<< HEAD
         # print(output[:200])
         output = '<think>' + output
-=======
         print(output)
-        output = "<think>" + output
-        output = "<think>" + output
->>>>>>> 4bfbf071d26bb20a27213c160aeb428eaf8df6c5
         pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>'
         match = re.search(pattern, output, re.DOTALL)
         if not match:

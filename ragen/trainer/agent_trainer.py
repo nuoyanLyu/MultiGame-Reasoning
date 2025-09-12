@@ -459,6 +459,7 @@ class RayAgentTrainer(VerlRayPPOTrainer):
             return inputs, outputs, scores
 
         def _filter_rollout(batch):
+            # NOTE：后续的trajectory filter就可以更改这个代码
             """filter rollout based on in-group max - in-group mean. We want those groups to have high-quality rollouts that deviates significantly from the mean"""
             rollout_filter_ratio = self.config.actor_rollout_ref.rollout.rollout_filter_ratio
             num_groups, group_size = self.config.es_manager.train.env_groups, self.config.es_manager.train.group_size
@@ -517,10 +518,6 @@ class RayAgentTrainer(VerlRayPPOTrainer):
 
                     inputs, outputs, scores = _process_batch_for_logging(batch)
                     # self._maybe_log_generations(inputs=inputs, outputs=outputs, scores=scores, _type="train")
-
-
-
-
 
                 if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
                     # TODO: check if this is correct. Not tested yer

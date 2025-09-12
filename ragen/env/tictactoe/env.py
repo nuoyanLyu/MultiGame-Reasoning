@@ -229,7 +229,7 @@ The available actions are: {actions}.
             # 看一下deepseek输出的是什么东西？是否长篇大论
             # print(env_output)
             # 降低env_output的匹配精确度，环境agent并不需要精确匹配
-            action = self._parse_action_env(env_output, strict=True)
+            action = self._parse_action_env(env_output, strict=False)
             # print(action)
             available_actions = self.get_all_actions()
             # 如果错了环境agent可以多次调用，直到生成合理的solution

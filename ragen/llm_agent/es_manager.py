@@ -233,9 +233,6 @@ class EnvStateManager:
                     cache['metrics'][f"{tag}/pass@{self.group_size}"] = pass_success
         return rollout_cache
 
-
-
-
     def _update_cache_history(self, history: List[Dict], next_state, actions_left, num_actions_info: Optional[Dict] = None):
         """
         Update last step info and append state to history
