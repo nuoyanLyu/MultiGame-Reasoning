@@ -155,7 +155,10 @@ class LLMAgentProxy:
 			env_outputs: List[Dict] = es_manager.step(env_inputs)
 			if len(env_outputs) == 0: # all finished
 				break
+		# 像是前面记录了训练的信息，最后在这里融合一下的结果
 		rollout_states = es_manager.get_rollout_states() 
+		print(rollout_states[0])
+		print('\nstates formulate\n')
 		rollouts = ctx_manager.formulate_rollouts(rollout_states)
 		# self.tokenizer.batch_decode(rollouts.batch['input_ids'], skip_special_tokens=False) # see all the trajectories
 		return rollouts
