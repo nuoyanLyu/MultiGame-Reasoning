@@ -157,9 +157,12 @@ class LLMAgentProxy:
 				break
 		# 像是前面记录了训练的信息，最后在这里融合一下的结果
 		rollout_states = es_manager.get_rollout_states() 
+		print('****************************************')
 		print(rollout_states[0])
+		print('****************************************')
 		print('\nstates formulate\n')
 		rollouts = ctx_manager.formulate_rollouts(rollout_states)
+		print(rollouts[0])
 		# self.tokenizer.batch_decode(rollouts.batch['input_ids'], skip_special_tokens=False) # see all the trajectories
 		return rollouts
 

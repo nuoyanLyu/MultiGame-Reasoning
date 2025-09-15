@@ -12,5 +12,5 @@ WANDB_MODE=offline RAY_DEDUP_LOGS=0\
         actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
         trainer.experiment_name="tictactoe-grpo" \
         custom_envs.TicTacToe.env_config.player_info="[{model_name: 'deepseek'}]" \
-        $USE_GRPO \
-        2>&1 | tee "$LOG_DIR/grpo_${TIMESTAMP}.log"
+        $USE_GRPO
+        # 2>&1 | tee "$LOG_DIR/grpo_${TIMESTAMP}.log"
