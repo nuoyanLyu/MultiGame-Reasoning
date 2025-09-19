@@ -16,11 +16,11 @@ custom_envs:
   TicTacToe:
     env_type: tictactoe
     max_actions_per_traj: 5
-    env_instruction: "You are playing TicTacToe."
+    env_instruction: "##Game Rules: TicTacToe\n**Objective**: Be the first player to connect 3 of your pieces in a continuous line.\n**Player Pieces**:\n- Player 1: 'O'\n- Player 2: 'X'\n- Empty Slot: '.'\n**How to Play**:\n1. The game is played on a 3x3 vertical grid.\n2. Players take turns dropping one of their pieces into any available column from the top.\n3. The piece falls to the lowest unoccupied slot in that column.\n**Winning Conditions**:\nThe game ends when a player forms a line of 3 of their own pieces. The line can be:\n1.  **Horizontal** (side-by-side in a row)\n    *Example of a horizontal win for Player 1 ('O'):*\n    ```\n    X . . \n    O O O   <-- 3 'O's in row 2\n    . X . \n    ```\n2.  **Vertical** (stacked on top of each other in a column)\n    *Example of a vertical win for Player 2 ('X'):*\n    ```\n    . X O \n    O X O   <-- 3 'X's in column 2\n    . X . \n    ```\n3.  **Diagonal** (connected at an angle)\n    *Example of a diagonal win (bottom-left to top-right) for Player 1:*\n    ```\n    . . O \n    . O X   <-- 3 'O's in a diagonal line\n    O X . \n    ```\n    *Example of another diagonal win (top-left to bottom-right) for Player 2:*\n    ```\n    X . O \n    . X O   <-- 3 'X's in a diagonal line\n    . O X \n    ``` \n3.  **Diagonal** (connected at an angle)\n    *Example of a diagonal win (bottom-left to top-right) for Player 1:*\n    ```\n    . . O \n    . O X   <-- 3 'O's in a diagonal line\n    O X . \n    ```\n    *Example of another diagonal win (top-left to bottom-right) for Player 2:*\n    ```\n    X . O \n    . X O   <-- 3 'X's in a diagonal line\n    . O X \n    ```\n**Draw Condition**:\nIf the entire grid is filled with pieces and no player has won, the game is a draw."
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config:  # 这里可以指定env_config中的config文件信息 先默认是和本地QWEN8B对战，后续看怎么改self-play
       player_info: 
-        - model_name: 'deepseek'
+        - model_name: 'google/gemini-2.5-flash'  # 换成flash，质量更高
         # - model_name: 'Qwen3-8B-Base'
         #   port: 3833
       temperature: 0.5

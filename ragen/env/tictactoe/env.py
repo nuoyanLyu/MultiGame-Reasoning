@@ -136,9 +136,6 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         actions = self.get_all_actions()
         prompt0 = f"""You are {player} playing game Tic-Tac-Toe.
 
-## Rules
-{INIT_PROMPT}
-
 ## Current Game State
 {state_prompt}
 
@@ -146,16 +143,12 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
 You are {player}.
 The available actions are: {actions}.
 """
+        # init_prompt在trainer中已经作为env_instruct指定，不需要再次重复输入
         if self.current_player_id == self.env_id:
-            prompt = prompt0 + f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
+            # 添加初始指令说明、降低指令遵循难度
+            prompt = f"## Rules\n{INIT_PROMPT}" + prompt0 + f"""Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
         else:
              prompt = prompt0 
-# You should first reason about the current situation in no more than 100 words.
-# Please output this process in the format of <think>reason</think>
-# Once you've finished your reasoning, you should choose an admissible action for current step and
-# present it within <action> </action> tags.
-# Note: Please simplify your reasoning in ** no more than 100 words**.
-# For example: <think> Your Reason </think> <action>{actions[0]}</action>
         return prompt
 
     def step(self, action: str) -> Tuple[str, float, bool, Dict]:
@@ -175,13 +168,17 @@ The available actions are: {actions}.
         available_actions = self.get_all_actions()
         info = {"action_is_effective": None, "action_is_valid": None, "success": None}
         train_id = 1 - self.env_id
+        self.current_player_id = train_id
         if action not in available_actions:
             # Handle invalid action - could return an error message, or penalize.
-            error_prompt = f"Invalid action: '{action}'. \nGame over."
+            # 和invalid action相同的处理方案，更新，允许模型再次尝试
+            error_prompt = f"Invalid action: '{action}'. \nPlease try again.\n"
             info['action_is_effective'] = False
             info['action_is_valid'] = False
             info['success'] = False
-            return (error_prompt, -1, True, info)
+            prompt0 = error_prompt + self.render()
+            # invalid action，动作reward同样设置为format_penalty -0.1
+            return (error_prompt, -0.1, False, info)
         
         # Update state with the valid action
         self._update_state(action, train_id)
@@ -197,7 +194,7 @@ The available actions are: {actions}.
         if win:
             # self.winner = self._get_winner()
             # if self.winner == self.players[self.current_player_index]:
-            reward = 1 # Simple reward: 1 for winning, 0 for draw/loss
+            reward = 1 # Simple reward: 1 for winning, 0.5 for draw/loss
             done = True
             success_prompt = 'Congratulations! You are the winner!'
             info['action_is_effective'] = True
@@ -207,7 +204,7 @@ The available actions are: {actions}.
             return success_prompt, reward, done, info
         # 判断是否为平局
         if len(self.get_all_actions()) == 0:
-            reward = 0
+            reward = 0.5
             done = True
             draw_prompt = 'Draw! No winner.'
             info['action_is_effective'] = True
@@ -226,7 +223,7 @@ The available actions are: {actions}.
         while not valid and try_count < self.max_env_try:
             env_output = self.env_player.act(env_prompt, 0)
             # 同样处理action、更新环境的流程
-            # 看一下deepseek输出的是什么东西？是否长篇大论
+            # 看一下对手输出的是什么东西？是否长篇大论
             # print(env_output)
             # 降低env_output的匹配精确度，环境agent并不需要精确匹配
             action = self._parse_action_env(env_output, strict=False)
@@ -238,11 +235,11 @@ The available actions are: {actions}.
                 action_in = True
             try_count += 1  
         if not valid:
-            print(env_output)
+            # print(env_output)
             # TODO:对手失误，算作agent胜利 OR 平局？感觉都不太合理，给一个中间的奖励？
             # 尽量不要出现这个情况，理论上应该是一直等到环境agent有动作才好——
             # 甚至应该随机选一个作为动作才更加合理
-            reward = 0
+            reward = 0.5
             done = True
             if action_in:
                 draw_prompt = 'Your opponent action is wrong! No winner.'
@@ -269,7 +266,7 @@ The available actions are: {actions}.
         if env_win:
             # self.winner = self._get_winner()
             # if self.winner == self.players[self.current_player_index]:
-            reward = -1 # Simple reward: 1 for winning, 0 for draw/loss
+            reward = 0 
             done = True
             fail_prompt = 'Failed! The opponent wins! Game over. Final state: \n' + self._get_state_prompt()
             info['action_is_effective'] = True
@@ -279,7 +276,7 @@ The available actions are: {actions}.
             return fail_prompt, reward, done, info
         # 判断是否为平局
         if len(self.get_all_actions()) == 0:
-            reward = 0
+            reward = 0.5
             done = True
             draw_prompt = 'Draw! No winner.\n' + self._get_state_prompt()
             info['action_is_effective'] = True
@@ -498,5 +495,5 @@ if __name__ == "__main__":
         # action = int(keyboard)
         # assert action in env.ACTION_LOOKUP, f"Invalid action: {action}"
         obs, reward, done, info = env.step(keyboard)
-        for o in [reward, done, info]:
+        for o in [obs, reward, done, info]:
             print(o)
