@@ -7,7 +7,7 @@ trainer:
 
 actor_rollout_ref:
   rollout:
-    max_model_len: 3600  # 会超出默认的最大长度3600
+    max_model_len: 6000  # 修改之后还是会超出默认的最大长度3600
 
 es_manager:
   train:
