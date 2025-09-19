@@ -6,15 +6,11 @@ import random
 import re
 from collections import Counter
 from verl.utils import hf_tokenizer
-tokenizer = hf_tokenizer("/root/autodl-tmp/tictactoe/grpo/game_220")
-
-# for key in ["http_proxy", "https_proxy", "all_proxy", 
-#             "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
-#     os.environ.pop(key, None)
 
 
 root_path = "/data1/lvnuoyan/llm_model"
-tokenizer = hf_tokenizer(f"{root_path}/tictactoe/grpo/game_220")
+# root_path = 'autodl-tmp'
+tokenizer = hf_tokenizer(f"{root_path}/tictactoe-gemini/game20")
 
 # 配置 OpenAI 客户端（兼容 vLLM 的 OpenAPI 接口）
 client = OpenAI(
@@ -22,15 +18,14 @@ client = OpenAI(
     base_url=f"http://localhost:2220/v1"  # 与 vLLM 服务端口一致 3333没人用之后我都用这个端口吧
 )
 
-model_path = '/root/autodl-tmp'
+model_path = '/data1/lvnuoyan/llm_model'
 def trainer_output(text: str) -> str:
     message = [{"role": "system", "content": "You're a helpful assistant. "},
                {"role": "user", "content": text}]
     prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
-    prompt += "<think>"
     try:
         response = client.completions.create(
-            model=f"{root_path}/tictactoe/grpo/game_220",
+            model=f"{root_path}/tictactoe-gemini/game20",
             prompt=prompt,
             max_tokens=600,
             temperature=0.5,
@@ -40,6 +35,58 @@ def trainer_output(text: str) -> str:
     except Exception as e:
         raise RuntimeError(f"API 调用失败：{str(e)}")
 
+init_prompt = f"""
+## Game Rules: TicTacToe
+
+**Objective**: Be the first player to connect 3 of your pieces in a continuous line.
+
+**Player Pieces**:
+- Player 1: 'O'
+- Player 2: 'X'
+- Empty Slot: '.'
+
+**How to Play**:
+1. The game is played on a 3x3 vertical grid.
+2. Players take turns dropping one of their pieces into any available column from the top.
+3. The piece falls to the lowest unoccupied slot in that column.
+
+**Winning Conditions**:
+The game ends when a player forms a line of 3 of their own pieces. The line can be:
+
+1.  **Horizontal** (side-by-side in a row)
+    *Example of a horizontal win for Player 1 ('O'):*
+    ```
+    X . . 
+    O O O   <-- 3 'O's in row 2
+    . X . 
+    ```
+
+2.  **Vertical** (stacked on top of each other in a column)
+    *Example of a vertical win for Player 2 ('X'):*
+    ```
+    . X O 
+    O X O   <-- 3 'X's in column 2
+    . X . 
+    ```
+
+3.  **Diagonal** (connected at an angle)
+    *Example of a diagonal win (bottom-left to top-right) for Player 1:*
+    ```
+    . . O 
+    . O X   <-- 3 'O's in a diagonal line
+    O X . 
+    ```
+    *Example of another diagonal win (top-left to bottom-right) for Player 2:*
+    ```
+    X . O 
+    . X O   <-- 3 'X's in a diagonal line
+    . O X 
+    ```
+
+**Draw Condition**:
+If the entire grid is filled with pieces and no player has won, the game is a draw.
+
+"""
 
 prompt0 = f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens). <think>"""
 
@@ -56,12 +103,11 @@ for t in trange(100):
     while True:
         # print(prompt + prompt0)
         # 得到trainer的行动
-        output = trainer_output(prompt + prompt0)
+        output = trainer_output(init_prompt + prompt + prompt0)
         # print(output[:200])
-        output = '<think>' + output
         print(output)
-        pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>'
-        match = re.search(pattern, output, re.DOTALL)
+        pattern = r'.*<think>(.*?)</think>\s*<answer>(.*?)</answer>$'
+        match = re.match(pattern, output, re.DOTALL)
         if not match:
             info_list.append('trainer-invalid-output')
             print(output[:200])
