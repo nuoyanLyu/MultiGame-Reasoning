@@ -91,6 +91,7 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
                                     temperature=self.config.temperature,
                                     model_path=self.config.model_path)
+        print(f'[Environment TicTacToe]: set Env Player {self.config.player_info}')
         self.env_id = None
         self.current_player_id = None
         self.history = []
