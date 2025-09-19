@@ -112,7 +112,7 @@ agent_proxy:
     grouping: "state" # state / batch / inductive
     method: "identity" # asym_clip / identity / mean_std
 
-es_manager:
+es_manager:  # 数值沿用原始设定，并没有缩小规模
   format_penalty: -0.1
   train:
     env_groups: 8 # 8

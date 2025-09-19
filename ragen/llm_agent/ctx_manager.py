@@ -39,18 +39,25 @@ def get_masks_and_scores(input_ids: torch.Tensor, tokenizer: AutoTokenizer, all_
     Get loss mask that only learns between <|im_start|>assistant and <|im_end|>. Currently only supports qwen.
     NOTE: important! This assumes that the input_ids starts with system and then user & assistant in alternative ways
     """
+    # input_ids：输入文本的token序列
+    # special_token: |im_start|, reward_token: |im_end|
     special_token, reward_token = get_special_tokens(tokenizer)
-    
+    # 返回token是否是|im_start|，是为1否则为0
     turn_starts = torch.where(input_ids == special_token, 1, 0)
+    # 使用cumsum，第一个im_start开始就是1111，第二个im_start开始就是2222，以此类推
     turn_indicators = torch.cumsum(turn_starts, dim=-1)
-    if enable_response_mask:
+    if enable_response_mask:  # 应该是设置为了True提高训练稳定性
+        # 确定一下消息结构：依次为 system, user, assistant, user, assistant这样的结构
         loss_mask = (turn_indicators % 2 == 1) & (turn_indicators > 1) # only learns all assistant turns
+        # 所以loss_mask是所有的assistant输出的信息
+        # print(f"loss_mask: {loss_mask}")
     else:
         loss_mask = (turn_indicators > 1) # learns everything after system prompt
+    # 同loss_mask，是assistant输出信息
     response_mask = (turn_indicators % 2 == 1) & (turn_indicators > 1)
-    
+    # print(f'response_mask: {response_mask}')
     score_tensor = torch.zeros_like(input_ids, dtype=torch.float32)
-    if use_turn_scores:
+    if use_turn_scores: # 应该是设置为了False NOTE：后续如果加入step_score可能多处需要修改
         for idx, scores in enumerate(zip_longest(*all_scores, fillvalue=0)):
             scores = torch.tensor(scores, dtype=torch.float32)
             turn_indicator = idx * 2 + 3 # 0: pad. 1: system. 2+2n: user. 3+2n: assistant
@@ -62,52 +69,14 @@ def get_masks_and_scores(input_ids: torch.Tensor, tokenizer: AutoTokenizer, all_
             # for Qwen, there is a "\n" between special token and reward token, so we shift this to make sure reward is assigned to the last token of a turn
             score_tensor = score_tensor.roll(shifts=1, dims=-1)
     else:
-        scores = [sum(i) for i in all_scores]
+        # print(f"all_scores: {all_scores}")
+        scores = [sum(i) for i in all_scores]  # 所有数据的加一起
         score_tensor[:, -1] = torch.tensor(scores, dtype=torch.float32)
     score_tensor = score_tensor[:, 1:] # remove the first token
     loss_mask = loss_mask[:, :-1] # remove the last token
     response_mask = response_mask[:, :-1] # remove the last token
 
     return score_tensor, loss_mask, response_mask
-
-def get_masks_and_scores_new(input_ids: torch.Tensor, tokenizer: AutoTokenizer, all_scores: List[List[float]] = None, use_turn_scores: bool = False, enable_response_mask: bool = False):
-    """
-    Do not move the first token since we change the template set!
-    input_ids: shape (bsz, seq_len)
-    Get loss mask that only learns between <|im_start|>assistant and <|im_end|>. Currently only supports qwen.
-    NOTE: important! This assumes that the input_ids starts with system and then user & assistant in alternative ways
-    """
-    special_token, reward_token = get_special_tokens(tokenizer)
-    
-    turn_starts = torch.where(input_ids == special_token, 1, 0)
-    turn_indicators = torch.cumsum(turn_starts, dim=-1)
-    if enable_response_mask:
-        loss_mask = (turn_indicators % 2 == 1) & (turn_indicators > 1) # only learns all assistant turns
-    else:
-        loss_mask = (turn_indicators > 1) # learns everything after system prompt
-    response_mask = (turn_indicators % 2 == 1) & (turn_indicators > 1)
-    
-    score_tensor = torch.zeros_like(input_ids, dtype=torch.float32)
-    if use_turn_scores:
-        for idx, scores in enumerate(zip_longest(*all_scores, fillvalue=0)):
-            scores = torch.tensor(scores, dtype=torch.float32)
-            turn_indicator = idx * 2 + 3 # 0: pad. 1: system. 2+2n: user. 3+2n: assistant
-            reward_position = (input_ids == reward_token) & (turn_indicators == turn_indicator)
-            # Set the last token of the rows where all positions are False to True
-            reward_position[~reward_position.any(dim=-1), -1] = True
-            score_tensor[reward_position] = scores
-        if "qwen" in tokenizer.name_or_path.lower():
-            # for Qwen, there is a "\n" between special token and reward token, so we shift this to make sure reward is assigned to the last token of a turn
-            score_tensor = score_tensor.roll(shifts=1, dims=-1)
-    else:
-        scores = [sum(i) for i in all_scores]
-        score_tensor[:, -1] = torch.tensor(scores, dtype=torch.float32)
-    score_tensor = score_tensor[:, 1:] # remove the first token
-    loss_mask = loss_mask[:, :-1] # remove the last token
-    response_mask = response_mask[:, :-1] # remove the last token
-
-    return score_tensor, loss_mask, response_mask
-
 
 
 class ContextManager:
@@ -212,10 +181,10 @@ class ContextManager:
         return llm_response, actions
 
     def _parse_response(self, response: str) -> List:
-        # pattern = r'.*<think>(.*?)</think>\s*<answer>(.*?)</answer>$' if self.config.agent_proxy.enable_think else r'.*<answer>(.*?)</answer>$'
-        # match = re.match(pattern, response, re.DOTALL)
-        pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>' if self.config.agent_proxy.enable_think else r'<answer>(.*?)</answer>'
-        match = re.search(pattern, response, re.DOTALL)
+        pattern = r'.*<think>(.*?)</think>\s*<answer>(.*?)</answer>$' if self.config.agent_proxy.enable_think else r'.*<answer>(.*?)</answer>$'
+        match = re.match(pattern, response, re.DOTALL)
+        # pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>' if self.config.agent_proxy.enable_think else r'<answer>(.*?)</answer>'
+        # match = re.search(pattern, response, re.DOTALL)
         if not match:
             # think_content, action_content, actions = "", "", [] # do not remove this kind of invalid string
             llm_response, actions = response, []
@@ -224,7 +193,6 @@ class ContextManager:
                 think_content, action_content = match.group(1), match.group(2)
             else:
                 think_content, action_content = "", match.group(1)
-
                 
             for special_token in self.special_token_list:
                 action_content = action_content.replace(special_token, "").strip()
@@ -236,9 +204,8 @@ class ContextManager:
             if len(actions) > max_actions:
                 actions = actions[:max_actions] #Only the first MAX_ACTIONS actions are kept in the rollout.
                 action_content = (" " + self.action_sep + " ").join(actions)
-
+            # 保留之前的打包方案，仅保留符合格式的内容，和原始处理方法相同
             llm_response = f"<think>{think_content}</think><answer>{action_content}</answer>" if self.config.agent_proxy.enable_think else f"<answer>{action_content}</answer>"
-            # 这里的llm_response保留原始输出，不需要重新打包格式——但是会不会影响loss计算等方面？
             # llm_response = response
         return llm_response, actions
         
@@ -281,7 +248,7 @@ class ContextManager:
         group2index = {k: torch.tensor(v) for k, v in group2index.items()}
 
         
-        # apply penalty pre-normalization
+        # apply penalty pre-normalization 在这里会把之前的penalty项考虑进去
         acc_scores = score_tensor[:, -1]
         normalized_acc_scores = acc_scores.clone()
         penalty = torch.tensor([env_output.get("penalty", 0) for env_output in env_outputs], dtype=torch.float32)
@@ -290,7 +257,7 @@ class ContextManager:
         if len(group2index) < acc_scores.shape[0]: # the group size > 1
             for group, index in group2index.items():
                 normalized_acc_scores[index] = norm_func(normalized_acc_scores[index])
-
+        # print("normalized_acc_scores: ", normalized_acc_scores)
         score_tensor[:, -1] = normalized_acc_scores
 
         return score_tensor
@@ -332,7 +299,8 @@ class ContextManager:
                     messages[-1]["content"] += f"State:\n{content['state']}\nYou have {content['actions_left']} actions left. Always output: {FORMAT_PROMPT} with no extra text. Strictly follow this format. {LENGTH_PROMPT}\n"
                 # prepare for update可能才有？里面包含了历史的LLM输出
                 if "llm_response" in content:
-                    # 打包历史的llm回复信息——这里用的不是原始消息
+                    # 打包历史的llm回复信息——这里用的不是原始消息——这样对吗？
+                    # 如果直接不符合格式是不是就会结束、不继续输出，如果按照这个逻辑直接拼进来llm_response也没问题
                     messages.append({"role": "assistant", "content": content["llm_response"]})
                 if "reward" in content and not (prepare_for_update and idx == len(env_output["history"]) - 1):
                     # when prepare for update, we do not add the reward from the n+1 turn to the trajectory
@@ -361,7 +329,6 @@ class ContextManager:
         inputs = self.tokenizer(llm_input_texts, return_tensors="pt", padding=True, padding_side="left", truncation=False) # do not truncate here. Process later at TODO
         input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
         position_ids = attention_mask.cumsum(dim=-1)
-        # print(position_ids)
         if prepare_for_update:
             scores = [[i.get('reward', 0.0) for i in env_output['history']] for env_output in env_outputs]
             score_tensor, loss_mask, response_mask = get_masks_and_scores(input_ids, self.tokenizer, scores, use_turn_scores=self.config.agent_proxy.use_turn_scores, enable_response_mask=self.config.enable_response_mask)
@@ -452,7 +419,7 @@ class ContextManager:
                     messages[-1]["content"] += f"State:\n{content['state']}\nYou have {content['actions_left']} actions left. Always output: {FORMAT_PROMPT} with no extra text. Strictly follow this format. {LENGTH_PROMPT}\n"
                 # prepare for update可能才有？里面包含了历史的LLM输出
                 if "llm_response" in content:
-                    # 打包历史的llm回复信息
+                    # 打包历史的llm回复信息——打包的是处理后的结果
                     messages.append({"role": "assistant", "content": content["llm_response"]})
                 if "reward" in content and not (prepare_for_update and idx == len(env_output["history"]) - 1):
                     # when prepare for update, we do not add the reward from the n+1 turn to the trajectory
@@ -465,24 +432,21 @@ class ContextManager:
             assert all(msg["role"] == "assistant" for msg in messages[2::2])
             # 所以是通过assistant计算的loss并不是通过<think>之类的token——也合理
             text = self.tokenizer.apply_chat_template(messages, add_generation_prompt=(not prepare_for_update), tokenize=False)
-            # NOTE：这个应该要进行修改，这种设定并不合理，整个chat_template都应该修改
-            if not prepare_for_update:
-                if self.config.agent_proxy.enable_think:
-                    # NOTE：删掉，一般的指令遵循不会有这个<think>的token
-                    text += "<think>" # force the LLM to think before answering
-                else:
-                    text += "<answer>" # force the LLM to answer
+            # NOTE：这个应该要进行修改，这种设定并不合理，不需要在最后强制加上<think>的token
+            # if not prepare_for_update:
+            #     if self.config.agent_proxy.enable_think:
+            #         # NOTE：删掉，一般的指令遵循不会有这个<think>的token
+            #         text += "<think>" # force the LLM to think before answering
+            #     else:
+            #         text += "<answer>" # force the LLM to answer
             llm_input_texts.append(text)
             messages_list.append(messages)
-        # 打一下日志
-        # input_swan = swanlab.Text(llm_input_texts[0])
-        # swanlab.log({"input_text": input_swan})
-        print(llm_input_texts[0])
         inputs = self.tokenizer(llm_input_texts, return_tensors="pt", padding=True, padding_side="left", truncation=False) # do not truncate here. Process later at TODO
         input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
-        position_ids = attention_mask.cumsum(dim=-1)
-        # print(position_ids)
+        position_ids = (attention_mask.cumsum(dim=-1) - 1).clamp(min=0)
+        # print(position_ids)  这个position+ids我之前修改过吗……确认一下，总感觉不对
         if prepare_for_update:
+            # 看一下打包好的input结果
             scores = [[i.get('reward', 0.0) for i in env_output['history']] for env_output in env_outputs]
             score_tensor, loss_mask, response_mask = get_masks_and_scores(input_ids, self.tokenizer, scores, use_turn_scores=self.config.agent_proxy.use_turn_scores, enable_response_mask=self.config.enable_response_mask)
 
@@ -496,11 +460,11 @@ class ContextManager:
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "position_ids": position_ids,
-            "responses": input_ids,  # input_ids[:, 1:], # remove the first token
+            "responses": input_ids[:, 1:], # remove the first token
         }, batch_size=input_ids.shape[0])
-        # 更像是输入的里面有多少是真正的参与loss计算的response信息
 
         if prepare_for_update:
+            # 这些remove token是为了predict next token的loss计算，和<think>的token五官
             llm_inputs.batch["loss_mask"] = loss_mask # remove the first token
             llm_inputs.batch["rm_scores"] = normalized_score_tensor # remove the first token
             llm_inputs.batch["original_rm_scores"] = score_tensor # remove the first token
@@ -567,7 +531,7 @@ class ContextManager:
         else: # dataproto has textual responses
             responses = lm_outputs.non_tensor_batch['response_texts']
         # NOTE：这个地方把<think>这个token加回去了，删除
-        responses = ["<think>" + response if self.config.agent_proxy.enable_think else "<answer>" + response for response in responses] # The LLM generation does not include <think> tags. Add them back here.
+        # responses = ["<think>" + response if self.config.agent_proxy.enable_think else "<answer>" + response for response in responses] # The LLM generation does not include <think> tags. Add them back here.
         env_ids = lm_outputs.non_tensor_batch['env_ids']
         env_inputs = []
         for env_id, response in zip(env_ids, responses):

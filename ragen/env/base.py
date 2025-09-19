@@ -269,7 +269,7 @@ class EnvPlayer():
             model=model,
             messages=message0,
             temperature=self.temperature,
-            max_tokens=1000,
+            max_tokens=200,
         )
         return response.choices[0].message.content
 

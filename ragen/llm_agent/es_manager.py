@@ -130,6 +130,8 @@ class EnvStateManager:
         def _execute_actions(env, actions):
             acc_reward, turn_info, turn_done = 0, {}, False
             executed_actions = []
+            # 如果动作不是有效动作，actions直接就是空列表，不会进入下面的循环
+            # 对应的turn_done的变量就是False而不是真值
             for action in actions:
                 _, reward, done, info = env.step(action)
                 acc_reward += reward
@@ -169,11 +171,13 @@ class EnvStateManager:
             # execute actions in envs
             valid_actions = self._extract_map_valid_actions(entry, env_input['actions'])
             acc_reward, turn_info, turn_done, executed_actions = _execute_actions(env, valid_actions[:actions_left_before])
+            
             if len(valid_actions) != len(env_input['actions']) or not valid_actions:
                 self.rollout_cache[env_id]["penalty"] += self.sys_config.es_manager.format_penalty
                 
             status, history = _log_env_state(entry['status'], self.rollout_cache[env_id]['history'], entry['env'].render(), entry['max_actions_per_traj'], executed_actions, valid_actions, acc_reward, turn_done, turn_info, env_input)
             entry['status'] = status
+            # 如果未结束，直到动作超过max_actions_per_traj才会结束，设置truncated为True
             if entry['status'].num_actions >= entry['max_actions_per_traj'] and not turn_done:
                 entry['status'].truncated = True
                 entry['status'].terminated = True

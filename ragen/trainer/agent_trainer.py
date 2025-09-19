@@ -463,7 +463,9 @@ class RayAgentTrainer(VerlRayPPOTrainer):
             """filter rollout based on in-group max - in-group mean. We want those groups to have high-quality rollouts that deviates significantly from the mean"""
             rollout_filter_ratio = self.config.actor_rollout_ref.rollout.rollout_filter_ratio
             num_groups, group_size = self.config.es_manager.train.env_groups, self.config.es_manager.train.group_size
-
+            # original_rm_scores remove first token
+            # 在没有step_wise的reward时候，first token的score肯定是0
+            # 在这里直接 .sum(dim=-1)了，貌似并没有影响
             rm_scores = batch.batch["original_rm_scores"].sum(dim=-1).view(num_groups, group_size)
             in_group_std = rm_scores.std(dim=-1)
             in_group_max = rm_scores.max(dim=-1).values
@@ -512,6 +514,7 @@ class RayAgentTrainer(VerlRayPPOTrainer):
             with _timer("step", timing_raw):
                 # generate a batch
                 with _timer("gen", timing_raw):
+                    # rollout得到数据，filter_rollout进行轨迹过滤
                     batch = self.agent_proxy.rollout(batch, val=False)
                     batch, metrics = _filter_rollout(batch)
                     metrics.update({"train/" + key: value for key, value in batch.meta_info["metrics"].items()})
@@ -558,21 +561,24 @@ class RayAgentTrainer(VerlRayPPOTrainer):
                     self._balance_batch(batch, metrics=metrics)
 
                 # compute global_valid tokens
+                # attention_mask就是每个token都为1的tensor，加一起就是token数量
                 batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
 
-                if self.use_rm:
+                if self.use_rm:  # 为False
                     with _timer("reward", timing_raw):
                     # compute reward model score
-                        reward_tensor = self.rm_wg.compute_rm_score(batch)
+                        reward_tensor = self.rm_wg.compute_rm_score(batch)  # 这个过程会用到Attention_mask等mask信息
                         batch = batch.union(reward_tensor)
 
                 if self.config.reward_model.launch_reward_fn_async:
                     future_reward = compute_reward_async.remote(batch, self.config, self.tokenizer)
                 else:
+                    # 这个地方因为没有设置，会有一个warning，不影响模型结果
                     reward_tensor, reward_extra_infos_dict = compute_reward(batch, self.reward_fn)
 
                 # recompute old_log_probs
                 with _timer("old_log_prob", timing_raw):
+                    # 这个地方涉及到策略更新，会用到多个mask的信息
                     old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
                     batch = batch.union(old_log_prob)
                     avg_old_log_prob = masked_mean(old_log_prob.batch["old_log_probs"], batch.batch["response_mask"])
