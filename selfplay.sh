@@ -6,14 +6,14 @@ USE_GRPO="algorithm.adv_estimator=grpo agent_proxy.reward_normalization.method=m
 USE_PPO="algorithm.adv_estimator=gae" # by default.
 USE_BASE="algorithm.kl_ctrl.kl_coef=0.001 actor_rollout_ref.actor.kl_loss_coef=0.001 actor_rollout_ref.actor.clip_ratio_high=0.2 actor_rollout_ref.rollout.rollout_filter_ratio=1"
 
-TRAIN_ENV="tictactoe"
+TRAIN_ENV="tictactoe-gemini"
 LOG_DIR="/root/RAGEN/logs/$TRAIN_ENV"
 ROOT_DIR="/root/autodl-tmp"
 BASE_MODEL="Qwen2.5-1.5B-Instruct"
-MODEL_DIR="$ROOT_DIR/$TRAIN_ENV/grpo"
+MODEL_DIR="$ROOT_DIR/$TRAIN_ENV"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
-START=20
+START=100
 END=200
 STEP=20
 
@@ -28,8 +28,8 @@ for ((i=$START; i<=$END; i+=$STEP)); do
         model_name="$BASE_MODEL"
         model_path="$model_name"
     else
-        model_name="game_${i}"
-        model_path="$TRAIN_ENV/grpo/$model_name"
+        model_name="game${i}"
+        model_path="$TRAIN_ENV/$model_name"
     fi
 
     # [1] 启动 vLLM serve

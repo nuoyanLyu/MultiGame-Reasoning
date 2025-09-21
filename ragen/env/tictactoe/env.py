@@ -9,6 +9,8 @@ from .config import TicTacToeEnvConfig
 import gymnasium as gym
 import random
 
+import os
+
 
 system_prompt = "You are an expert in playing the Game TicTacToe."
 
@@ -485,6 +487,9 @@ The available actions are: {actions}.
 
 if __name__ == "__main__":
     # import matplotlib.pyplot as plt
+    for key in ["http_proxy", "https_proxy", "all_proxy", 
+            "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+        os.environ.pop(key, None)
     config = TicTacToeEnvConfig()
     env = TicTacToeEnv(config)
     # print(env.reset(seed=42))

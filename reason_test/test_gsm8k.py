@@ -11,10 +11,10 @@ from verl.utils import hf_tokenizer
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port', type=str, default='20202')
+parser.add_argument('--port', type=str, default='2515')
 # tictactoe/grpo/game_200
 # Qwen2.5-1.5B-Instruct
-parser.add_argument('--model_name', type=str, default='tictactoe/grpo/game_200')
+parser.add_argument('--model_name', type=str, default='Qwen2.5-1.5B-Instruct')
 # model_name = 'Qwen3-1.7B'
 args = parser.parse_args()
 
@@ -60,7 +60,6 @@ def reformat_prompt(prompt0):
                {"role": "user", "content": prompt}]
     # apply_chat_template
     prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
-    prompt += "<think>"
     return prompt
 
 def extract_solution(solution_str, method="strict"):
@@ -94,10 +93,10 @@ def test_math(method='strict'):
     accs = []
     answers = []
     for i in tqdm.trange(len(math['test'])):  # len(math['test'])
-        q = math['test']['prompt'][i]
+        # 调整prompt内容，之前的格式不太对劲
+        q = math['test']['prompt'][i][0]['content']
         ground_truth = math['test']['reward_model'][i]['ground_truth']
         a = llm_output(q)
-        # print(a)
         answers.append(a)
         solution = extract_solution(a, method)
         # print(solution)
