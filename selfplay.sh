@@ -6,15 +6,15 @@ USE_GRPO="algorithm.adv_estimator=grpo agent_proxy.reward_normalization.method=m
 USE_PPO="algorithm.adv_estimator=gae" # by default.
 USE_BASE="algorithm.kl_ctrl.kl_coef=0.001 actor_rollout_ref.actor.kl_loss_coef=0.001 actor_rollout_ref.actor.clip_ratio_high=0.2 actor_rollout_ref.rollout.rollout_filter_ratio=1"
 
-TRAIN_ENV="tictactoe-gemini"
+TRAIN_ENV="tictactoe-selfplay"
 LOG_DIR="/root/RAGEN/logs/$TRAIN_ENV"
 ROOT_DIR="/root/autodl-tmp"
 BASE_MODEL="Qwen2.5-1.5B-Instruct"
 MODEL_DIR="$ROOT_DIR/$TRAIN_ENV"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
-START=100
-END=200
+START=180
+END=300
 STEP=20
 
 for ((i=$START; i<=$END; i+=$STEP)); do
@@ -70,7 +70,7 @@ for ((i=$START; i<=$END; i+=$STEP)); do
         --backend fsdp \
         --hf_model_path "$ROOT_DIR/$BASE_MODEL" \
         --local_dir "$ROOT_DIR/$TRAIN_ENV/global_step_$((i + STEP))/actor" \
-        --target_dir "$MODEL_DIR/game_$((i + STEP))"
+        --target_dir "$MODEL_DIR/game$((i + STEP))"
 
     # [4] 杀掉 vLLM serve
     # [4] 杀掉 vLLM serve，通过进程组的方式打包送走

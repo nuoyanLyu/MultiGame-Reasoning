@@ -25,7 +25,7 @@ class TicTacToeEnvConfig:
         # default_factory=lambda: [{'model_name': 'game100', 'port': '2121'}]
         # default_factory=lambda: [{'model_name': 'Qwen2.5-1.5B-Instruct', 'port': '2515'}]
     )
-    model_path: str = "/data1/lvnuoyan/llm_model" # "/root/autodl-tmp"  # "/data1/lvnuoyan/llm_model"
+    model_path: str = "/root/autodl-tmp"  # "/data1/lvnuoyan/llm_model"
     temperature: float = 0.5
     seed: int = 123
     max_env_try: int = 3
