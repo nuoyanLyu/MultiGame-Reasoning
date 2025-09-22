@@ -102,6 +102,20 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         self.last_move: Optional[tuple[int, int]] = None
         self.reset()
 
+    def reset0(self, seed=None):
+        # 用于测试环境，初始全0，随机选取先后手
+        seed_everything(seed)
+        self.game_state = np.zeros((self.rows, self.cols), dtype=int)
+        self.env_id = random.choice([0, 1])
+        if self.env_id == 0:
+            action = random.choice(self.get_all_actions())
+            self._update_state(action, 0)
+            self.history.append({
+                "player": 0,
+                "action": action
+            })
+        self.current_player_id = 1 - self.env_id
+
     def reset(self, seed=None, **kwargs):
         """Initializes the board as a 3x3 grid of zeros."""
         self.seed = seed
@@ -182,7 +196,7 @@ The available actions are: {actions}.
             info['success'] = False
             prompt0 = error_prompt + self.render()
             # invalid action，动作reward同样设置为format_penalty -0.1
-            return (error_prompt, -0.1, False, info)
+            return (prompt0, -0.1, False, info)
         
         # Update state with the valid action
         self._update_state(action, train_id)
