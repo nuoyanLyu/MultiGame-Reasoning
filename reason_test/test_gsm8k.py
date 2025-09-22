@@ -55,7 +55,7 @@ def reformat_prompt(prompt0):
     # 替换为Let\'s think step by step and output your think and final answer in this format: 
     # <think> [your thought] </think> <answer> [your answer] </answer>
     prompt = prompt0.replace("Let\'s think step by step and output the final answer after \"####\".", 
-                             "Let\'s think step by step and output your think and final answer in this format: <think> [Your thoughts] </think> <answer> [your answer] </answer>")
+                             "Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 1000 words (tokens).")
     message = [{"role": "system", "content": "You're a helpful assistant. "},
                {"role": "user", "content": prompt}]
     # apply_chat_template
@@ -67,7 +67,7 @@ def extract_solution(solution_str, method="strict"):
 
     if method == "strict":
         # this also tests the formatting of the model
-        solutions = re.findall("#### (\\-?[0-9\\.\\,]+)", solution_str)
+        solutions = re.findall("<answer>(\\-?[0-9\\.\\,]+)</answer>", solution_str)
         if len(solutions) == 0:
             final_answer = None
         else:
@@ -95,19 +95,18 @@ def test_math(method='strict'):
     for i in tqdm.trange(len(math['test'])):  # len(math['test'])
         # 调整prompt内容，之前的格式不太对劲
         q = math['test']['prompt'][i][0]['content']
+        q = reformat_prompt(q)
+        print(q)
         ground_truth = math['test']['reward_model'][i]['ground_truth']
         a = llm_output(q)
+        print(a)
         answers.append(a)
         solution = extract_solution(a, method)
-        # print(solution)
-        # nprint(ground_truth)
+        print(solution)
         if solution == ground_truth:
             accs.append(1)
-            # print(1)
         else:
             accs.append(0)
-            # print(0)
-
     return accs, answers
 
 
