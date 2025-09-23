@@ -2,9 +2,9 @@
 
 # --- 用户配置部分 ---
 # 模型检查点所在的根目录
-ROOT_DIR="/root/autodl-tmp/tictactoe-gemini"
+ROOT_DIR="/root/autodl-tmp/tictactoe-gemini-think"
 # 合并后模型保存的根目录
-TAR_ROOT_DIR="/root/autodl-tmp/tictactoe-gemini"
+TAR_ROOT_DIR="/root/autodl-tmp/tictactoe-gemini-think"
 # Hugging Face 模型的路径
 HF_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
 # --- 用户配置部分结束 ---
@@ -29,7 +29,7 @@ STEP_NUMBER=$(basename "$OLD_MODEL_DIR" | sed 's/global_step_//')
 
 # 设置 ORI_PATH 和 TAR_PATH
 ORI_PATH="$OLD_MODEL_DIR/actor"
-TAR_PATH="$TAR_ROOT_DIR/game_$STEP_NUMBER"
+TAR_PATH="$TAR_ROOT_DIR/game$STEP_NUMBER"
 
 # 打印将要使用的路径，方便调试
 echo "-----------------------------------"

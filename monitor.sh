@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 监控的目录
-WATCH_DIR="/root/autodl-tmp/tictactoe-gemini"
+WATCH_DIR="/root/autodl-tmp/tictactoe-gemini-think"
 
 # 你的合并脚本路径
 MERGE_SCRIPT="/root/RAGEN/merge_dl.sh"
