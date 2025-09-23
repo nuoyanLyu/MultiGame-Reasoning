@@ -11,10 +11,10 @@ from verl.utils import hf_tokenizer
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port', type=str, default='2515')
+parser.add_argument('--port', type=str, default="2121")
 # tictactoe/grpo/game_200
 # Qwen2.5-1.5B-Instruct
-parser.add_argument('--model_name', type=str, default='Qwen2.5-1.5B-Instruct')
+parser.add_argument('--model_name', type=str, default='game100')
 # model_name = 'Qwen3-1.7B'
 args = parser.parse_args()
 
@@ -36,17 +36,17 @@ client = OpenAI(
 
 def llm_output(text: str) -> str:
     try:
-        response = client.chat.completions.create(
-            model=f"{root_path}/llm_model/{model_name}",  # 使用模型路径，如通过--served-model-name指定名称需与 vLLM 服务启动时指定的名称一致
-            messages=[{
-                "role": "user",
-                "content": f"{text}"
-            }],
-            max_tokens=1024,  # 控制生成文本长度[4](@ref)
-            temperature=0.5,  # 控制生成随机性（0-1，越高越随机）[4](@ref)
-            stream=False
+        message = [{"role": "system", "content": "You're a helpful assistant. "},
+                   {"role": "user", "content": text}]
+        prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
+        response = client.completions.create(
+            model=f"{root_path}/llm_model/{model_name}",
+            prompt=prompt,
+            max_tokens=1000,
+            temperature=0.5,
         )
-        return response.choices[0].message.content.strip()
+        # print(response.choices[0].text)
+        return response.choices[0].text
     except Exception as e:
         raise RuntimeError(f"API 调用失败：{str(e)}")
 
@@ -55,7 +55,7 @@ def reformat_prompt(prompt0):
     # 替换为Let\'s think step by step and output your think and final answer in this format: 
     # <think> [your thought] </think> <answer> [your answer] </answer>
     prompt = prompt0.replace("Let\'s think step by step and output the final answer after \"####\".", 
-                             "Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 1000 words (tokens).")
+                             "Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens).")
     message = [{"role": "system", "content": "You're a helpful assistant. "},
                {"role": "user", "content": prompt}]
     # apply_chat_template
@@ -64,13 +64,12 @@ def reformat_prompt(prompt0):
 
 def extract_solution(solution_str, method="strict"):
     assert method in ["strict", "flexible"]
-
     if method == "strict":
         # this also tests the formatting of the model
         # 更精确的正则表达式
         pattern = r"<answer>.*?(-?\d+\.?\d*)[^0-9]*</answer>"
         # 使用 re.search() 提取最后一个数字
-        match = re.search(pattern, solution_str)
+        match = re.search(pattern, solution_str, re.DOTALL)
         if match:
             last_number = match.group(1)  # 提取匹配到的最后一个数字
             return last_number
@@ -101,15 +100,22 @@ def test_math(method='strict'):
         q = reformat_prompt(q)
         print(q)
         ground_truth = math['test']['reward_model'][i]['ground_truth']
-        a = llm_output(q)
-        print(a)
-        answers.append(a)
-        solution = extract_solution(a, method)
-        print(solution)
-        if solution == ground_truth:
+        for i in range(5):
+            a = llm_output(q)
+            print(a)
+            answers.append(a)
+            solution = extract_solution(a, method)
+            print(solution)
+        # print(type(ground_truth))
+        # 之前发现可能表达式不同但实际上是一个数值的情况，比如100.00和100，然后可能有多余的
+        # 先不考虑这个情况
+        if solution is None:
+            accs.append(None)
+        elif solution == ground_truth:
             accs.append(1)
         else:
             accs.append(0)
+        exit(0)
     return accs, answers
 
 
@@ -119,9 +125,10 @@ math = datasets.load_dataset("parquet",
 # print(math['test']['prompt'][0])
 
 # exit(0)
-accs, answers = test_math('flexible')
-acc0 = sum(accs) / len(accs)
+accs, answers = test_math('strict')
+acc0 = accs.count(1) / len(accs)
 print('total acc:', acc0)
+print('invalid output:', accs.count(None))
 TIME = datetime.now().strftime("%m-%d-%H-%M")
 # 删除特殊字符
 model_name = model_name.replace('/', '').replace('\\', '')
