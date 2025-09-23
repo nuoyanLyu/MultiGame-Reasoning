@@ -68,12 +68,14 @@ def extract_solution(solution_str, method="strict"):
     if method == "strict":
         # this also tests the formatting of the model
         # 更精确的正则表达式
-        pattern = r"<answer>.*?(\-?\d+(\.\d+)?).*</answer>"
-        match = re.search(pattern, solution_str, re.DOTALL)
+        pattern = r"<answer>.*?(-?\d+\.?\d*)[^0-9]*</answer>"
+        # 使用 re.search() 提取最后一个数字
+        match = re.search(pattern, solution_str)
         if match:
-            final_answer = match.group(1).replace(",", "").replace("$", "")
+            last_number = match.group(1)  # 提取匹配到的最后一个数字
+            return last_number
         else:
-            final_answer = None
+            return None 
     elif method == "flexible":
         # 但是这个flexible匹配明明已经是宽松版本了，但还是匹配不到——可能还是训废了？        
         answer = re.findall("(\\-?[0-9\\.\\,]+)", solution_str)

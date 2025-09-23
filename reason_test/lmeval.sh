@@ -9,4 +9,5 @@ lm-eval --model local-completions \
     --batch_size 16 \
     --gen_kwargs "max_tokens=2000,temperature=0.5" \
     --tasks mmlu_pro --apply_chat_template \
-    --output_path "lm-eval/"
+    --output_path "lm-eval/" \
+    --system_instruction You're a helpful assistant. 
