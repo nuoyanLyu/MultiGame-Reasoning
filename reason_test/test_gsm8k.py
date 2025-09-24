@@ -11,7 +11,7 @@ from verl.utils import hf_tokenizer
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port', type=str, default="2121")
+parser.add_argument('--port', type=str, default="2100")
 # tictactoe/grpo/game_200
 # Qwen2.5-1.5B-Instruct
 parser.add_argument('--model_name', type=str, default='game100')
@@ -20,9 +20,10 @@ args = parser.parse_args()
 
 port = args.port
 model_name = args.model_name
-root_path = '/data1/lvnuoyan'
-tokenizer = hf_tokenizer(f"{root_path}/llm_model/{model_name}")
-
+model_folder = 'tictactoe-gemini'
+root_path = '/root/autodl-tmp'# '/data1/lvnuoyan'
+# tokenizer = hf_tokenizer(f"{root_path}/llm_model/{model_name}")
+tokenizer = hf_tokenizer(f"{root_path}/{model_folder}/{model_name}")
 # 禁用代理（只在本脚本有效）——服务器联网有问题，这样保证正常访问VLLM load的模型
 for key in ["http_proxy", "https_proxy", "all_proxy", 
             "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
@@ -40,7 +41,7 @@ def llm_output(text: str) -> str:
                    {"role": "user", "content": text}]
         prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
         response = client.completions.create(
-            model=f"{root_path}/llm_model/{model_name}",
+            model=f"{root_path}/{model_folder}/{model_name}",
             prompt=prompt,
             max_tokens=1000,
             temperature=0.5,
@@ -98,14 +99,13 @@ def test_math(method='strict'):
         # 调整prompt内容，之前的格式不太对劲
         q = math['test']['prompt'][i][0]['content']
         q = reformat_prompt(q)
-        print(q)
+        # print(q)
         ground_truth = math['test']['reward_model'][i]['ground_truth']
-        for i in range(5):
-            a = llm_output(q)
-            print(a)
-            answers.append(a)
-            solution = extract_solution(a, method)
-            print(solution)
+        a = llm_output(q)
+        # print(a)
+        answers.append(a)
+        solution = extract_solution(a, method)
+        # print(solution)
         # print(type(ground_truth))
         # 之前发现可能表达式不同但实际上是一个数值的情况，比如100.00和100，然后可能有多余的
         # 先不考虑这个情况
@@ -115,7 +115,6 @@ def test_math(method='strict'):
             accs.append(1)
         else:
             accs.append(0)
-        exit(0)
     return accs, answers
 
 
