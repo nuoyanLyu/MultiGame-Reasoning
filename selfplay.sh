@@ -17,6 +17,12 @@ START=180
 END=300
 STEP=20
 
+# 对手模型的GPU id以及对应的vllm serve端口
+GPU_DEVICE_ID=2
+VLLM_PORT=4040
+
+set -e
+
 for ((i=$START; i<=$END; i+=$STEP)); do
     echo "===== Round $i ====="
     # 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
@@ -34,17 +40,20 @@ for ((i=$START; i<=$END; i+=$STEP)); do
 
     # [1] 启动 vLLM serve
     echo "[INFO] Starting vLLM for $model_path ..."
-    setsid env CUDA_VISIBLE_DEVICES=2 vllm serve "$ROOT_DIR/$model_path" \
-        --port 4040 \
+    setsid env CUDA_VISIBLE_DEVICES=$GPU_DEVICE_ID vllm serve "$ROOT_DIR/$model_path" \
+        --port $VLLM_PORT \
         --max-model-len 6000 \
         --host 0.0.0.0 \
         --gpu-memory-utilization 0.9 \
         > "$LOG_DIR/vllm_monitor.log" 2>&1 &
-    vllm_pid=$!
-    pgid=$(ps -o pgid= -p "$vllm_pid" | tr -d ' ')
+    vllm_launcher_pid=$!
+    # pgid=$(ps -o pgid= -p "$vllm_pid" | tr -d ' ')
 
     echo "[INFO] Waiting for vLLM to load..."
     sleep 60
+
+    echo "[INFO] Model should be loaded. Current status on GPU $GPU_DEVICE_ID:"
+    nvidia-smi -i $GPU_DEVICE_ID
 
     # [2] 运行训练
     player_info="{model_name: '${model_path}', port: '4040'}"
@@ -72,37 +81,40 @@ for ((i=$START; i<=$END; i+=$STEP)); do
         --local_dir "$ROOT_DIR/$TRAIN_ENV/global_step_$((i + STEP))/actor" \
         --target_dir "$MODEL_DIR/game$((i + STEP))"
 
-    # [4] 杀掉 vLLM serve
-    # [4] 杀掉 vLLM serve，通过进程组的方式打包送走
-    # echo "[INFO] Killing vLLM serve (PID $vllm_pid, PGID $pgid)"
-    # kill -9 -"$pgid" || true
-    # sleep 2
-    # pkill -9 -f "vllm" || true
     # [4] 杀掉 vLLM serve，通过端口号和服务路径的方式精准清理
     echo "[INFO] Killing vLLM serve running on port 4040..."
-    # 主要方法：通过端口号找到并杀死进程
-    # lsof -t -i:4040 会返回监听该端口的进程PID
-    VLLM_PIDS=$(lsof -t -i:4040)
-    if [ -n "$VLLM_PIDS" ]; then
-        echo "[INFO] Found vLLM processes with PIDs: $VLLM_PIDS. Terminating..."
-        # 直接杀死这些PID，-9是强制信号
-        kill -9 $VLLM_PIDS
-        sleep 2 # 等待进程退出
+    # --- [3] 杀掉 vLLM Serve，基于 nvidia-smi 的精准方案 ---
+    echo "[INFO] Starting cleanup: Terminating all processes on GPU $GPU_DEVICE_ID..."
+
+    # 使用 nvidia-smi 查询指定GPU上的所有计算进程的PID
+    # --query-compute-apps=pid: 只查询计算应用的PID
+    # --format=csv,noheader: 以CSV格式输出，且不带标题行，方便脚本处理
+    # -i $GPU_DEVICE_ID: 指定要查询的GPU ID
+    PIDS_ON_GPU=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader -i $GPU_DEVICE_ID)
+
+    if [ -n "$PIDS_ON_GPU" ]; then
+        echo "[INFO] Found the following PIDs on GPU $GPU_DEVICE_ID: $PIDS_ON_GPU"
+        # 直接将PID列表传递给kill命令，-9表示强制终止
+        kill -9 $PIDS_ON_GPU
+        echo "[INFO] Kill signal sent to all found PIDs."
+        sleep 5 # 等待5秒，让操作系统有时间回收进程
     else
-        echo "[WARN] No process found listening on port 4040."
+        echo "[INFO] No running compute processes found on GPU $GPU_DEVICE_ID."
     fi
 
-    # 补充方法：通过启动命令的关键字进行更广泛的清理
-    # 这可以捕获一些没有监听端口但相关的残留进程
-    echo "[INFO] Performing secondary cleanup using pkill..."
-    pkill -9 -f "vllm"
-    pkill -9 -f "$model_path" # 使用模型路径作为独特的关键字，非常精确
+    # --- [4] 验证清理结果 ---
+    echo "[INFO] Verifying GPU status after cleanup..."
+    # 再次检查GPU状态，理想情况下“Processes”部分应该为空
+    nvidia-smi -i $GPU_DEVICE_ID
+
+    # 作为最后的保险措施，可以再用pkill清理一下，以防万一
+    echo "[INFO] Performing final secondary cleanup with pkill..."
+    pkill -9 -f "$model_path" || true # 使用模型路径作为独特的关键字，非常精确
 
     echo "[INFO] Cleanup complete."
     # check GPU memory确定GPU已经空出来了
     echo "[INFO] Checking GPU memory..."
     nvidia-smi
-
 
     # 删除旧模型目录（如果存在）
     MODEL_BEFORE="$ROOT_DIR/$TRAIN_ENV/global_step_${i}"
