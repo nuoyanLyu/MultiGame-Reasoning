@@ -74,13 +74,35 @@ for ((i=$START; i<=$END; i+=$STEP)); do
 
     # [4] 杀掉 vLLM serve
     # [4] 杀掉 vLLM serve，通过进程组的方式打包送走
-    echo "[INFO] Killing vLLM serve (PID $vllm_pid, PGID $pgid)"
-    kill -9 -"$pgid" || true
-    sleep 2
-    pkill -9 -f "vllm" || true
+    # echo "[INFO] Killing vLLM serve (PID $vllm_pid, PGID $pgid)"
+    # kill -9 -"$pgid" || true
+    # sleep 2
+    # pkill -9 -f "vllm" || true
+    # [4] 杀掉 vLLM serve，通过端口号和服务路径的方式精准清理
+    echo "[INFO] Killing vLLM serve running on port 4040..."
+    # 主要方法：通过端口号找到并杀死进程
+    # lsof -t -i:4040 会返回监听该端口的进程PID
+    VLLM_PIDS=$(lsof -t -i:4040)
+    if [ -n "$VLLM_PIDS" ]; then
+        echo "[INFO] Found vLLM processes with PIDs: $VLLM_PIDS. Terminating..."
+        # 直接杀死这些PID，-9是强制信号
+        kill -9 $VLLM_PIDS
+        sleep 2 # 等待进程退出
+    else
+        echo "[WARN] No process found listening on port 4040."
+    fi
+
+    # 补充方法：通过启动命令的关键字进行更广泛的清理
+    # 这可以捕获一些没有监听端口但相关的残留进程
+    echo "[INFO] Performing secondary cleanup using pkill..."
+    pkill -9 -f "vllm"
+    pkill -9 -f "$model_path" # 使用模型路径作为独特的关键字，非常精确
+
+    echo "[INFO] Cleanup complete."
     # check GPU memory确定GPU已经空出来了
     echo "[INFO] Checking GPU memory..."
     nvidia-smi
+
 
     # 删除旧模型目录（如果存在）
     MODEL_BEFORE="$ROOT_DIR/$TRAIN_ENV/global_step_${i}"
