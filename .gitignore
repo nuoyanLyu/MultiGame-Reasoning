@@ -124,3 +124,5 @@ ragen/env/api-keys.json
 test_sh.sh
 my_test/
 reason_test/*.json
+# lm-eval result files
+reason_test/lm-eval/ 

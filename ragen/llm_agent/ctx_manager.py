@@ -125,6 +125,8 @@ class ContextManager:
             env_config_new = asdict(REGISTERED_ENV_CONFIGS[env_config.env_type]())
             for k,v in env_config.items():
                 env_config_new[k] = v
+            # 如果有env_multi_instruction，提取对应的表格并随机抽取一个作为env_instruct
+            # 但是这里可能也要控制随机性——需要保证相同种子能够生成相同的prompt信息
             env_instruction = env_config_new.get("env_instruction", "")
             if env_config_new.get("grid_vocab", False):
                 grid_vocab_str = "\nThe meaning of each symbol in the state is:\n" + ", ".join([f"{k}: {v}" for k, v in env_config_new["grid_vocab"].items()])
