@@ -4,7 +4,7 @@ from typing import Dict, List, Any
 @dataclass
 class MathEnvConfig:
     render_mode: str = "text"
-    data_path: str = "/data1/lvnuoyan"  # "/root/autodl-tmp"
+    data_path: str = "/root/autodl-tmp"  # "/data1/lvnuoyan"
     seed: int = 123
     max_env_try: int = 1  # 数学题没必要多次尝试
     mode: str = "test"

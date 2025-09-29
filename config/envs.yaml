@@ -28,21 +28,21 @@ custom_envs:
       max_env_try: 3
   
   MathTrain:
-    env_type: math_level3to5
+    env_type: math_lv3to5
     max_actions_per_traj: 1 # used in environment state manager to control the actual max actions executed per trajectory
     env_instruction: ""
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of MathConfig
-      data_path: "/data1/lvnuoyan"  # "/root/autodl-tmp"
+      data_path: "/root/autodl-tmp"  # "/data1/lvnuoyan"
       data_files: "SimpleRL-Zoo-Data/simplelr_abel_level3to5"
       mode: "train"
   MathTest:
-    env_type: math_level3to5
+    env_type: math_lv3to5
     max_actions_per_traj: 1 # used in environment state manager to control the actual max actions executed per trajectory
     env_instruction: ""
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of MathConfig
-      data_path: "/data1/lvnuoyan"  # "/root/autodl-tmp"
+      data_path: "/root/autodl-tmp"  # "/data1/lvnuoyan"
       data_files: "SimpleRL-Zoo-Data/simplelr_abel_level3to5"
       mode: "test"
     
