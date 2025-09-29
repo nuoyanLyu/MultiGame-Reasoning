@@ -46,12 +46,12 @@ keys = json.load(open('ragen/env/api-keys.json'))
 deepseek_keys = keys['deepseek']
 # deepseek_key = os.environ.get('DEEPSEEK_KEY')
 if not deepseek_keys:
-    print('No deepseek keys found, please set it in the environment variable DEEPSEEK_KEY')
+    print('No deepseek keys found, please set it in file `ragen/env/api-keys.json`.')
     exit(1)
 deepseek_keys = ThreadSafeCycle(deepseek_keys)
 openrouter_keys = keys['openrouter']
 if not openrouter_keys:
-    print('No openrouter keys found, please set it in the environment variable OPENROUTER_KEY')
+    print('No openrouter keys found, please set it in file `ragen/env/api-keys.json`.')
     exit(1)
 openrouter_keys = ThreadSafeCycle(openrouter_keys)
 

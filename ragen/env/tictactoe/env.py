@@ -26,11 +26,12 @@ INIT_PROMPT = f"""
 
 **How to Play**:
 1. The game is played on a {TicTacToeEnvConfig().rows}x{TicTacToeEnvConfig().cols} vertical grid.
-2. Players take turns dropping one of their pieces into any available column from the top.
-3. The piece falls to the lowest unoccupied slot in that column.
+2. Players take turns setting one of their pieces into any available slot.
+"""
 
+WIN_PROMPT = f"""
 **Winning Conditions**:
-The game ends when a player forms a line of {TicTacToeEnvConfig().win_condition} of their own pieces. The line can be:
+The game ends when a player forms a line of 3 of their own pieces. The line can be:
 
 1.  **Horizontal** (side-by-side in a row)
     *Example of a horizontal win for Player 1 ('O'):*
@@ -89,6 +90,8 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         self.render_cache = None
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
+        # 加载多样的init_prompts
+        self.init_prompts = self.config.init_prompts
         self.max_env_try = self.config.max_env_try
         self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
                                     temperature=self.config.temperature,
@@ -100,7 +103,7 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         self.history = []
         self.game_state = np.zeros((self.rows, self.cols), dtype=int)
         self.last_move: Optional[tuple[int, int]] = None
-        self.reset()
+        self.reset(self.seed)
 
     def reset0(self, seed=None):
         # 用于测试环境，初始全0，随机选取先后手
@@ -152,8 +155,13 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         player = f'Player {self.current_player_id + 1}'
         state_prompt = self._get_state_prompt()
         actions = self.get_all_actions()
+        # 随机添加初始描述
+        init_prompt = random.choice(self.init_prompts)
+        # 随机添加终局描述文本
+        if random.choice([0, 1]):
+            init_prompt += WIN_PROMPT
         prompt0 = f"""You are {player} playing game Tic-Tac-Toe.
-
+{init_prompt}
 ## Current Game State
 {state_prompt}
 
@@ -163,8 +171,8 @@ The available actions are: {actions}.
 """
         # init_prompt在trainer中已经作为env_instruct指定，不需要再次重复输入
         if self.current_player_id == self.env_id:
-            # 添加初始指令说明、降低指令遵循难度
-            prompt = f"## Rules\n{INIT_PROMPT}" + prompt0 + f"""Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
+            # 初始指令已经包含在prompt中
+            prompt = prompt0 + f"""Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
         else:
              prompt = prompt0 
         return prompt
