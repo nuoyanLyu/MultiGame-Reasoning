@@ -160,8 +160,6 @@ class LLMAgentProxy:
 		rollout_states = es_manager.get_rollout_states() 
 		# 前面记录了训练的信息，最后在这里打包历史结果
 		rollouts = ctx_manager.formulate_rollouts(rollout_states)
-		print(rollouts)
-		exit(0)
 		return rollouts
 
 @hydra.main(version_base=None, config_path="../../config", config_name="base")
