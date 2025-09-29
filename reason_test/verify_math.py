@@ -2,19 +2,22 @@
 import json
 import re
 import datasets
+from pydantic import model_validator
 import tqdm
 from math_verify import parse, verify
 
 root_path = '/data1/lvnuoyan' # '/root/autodl-tmp'# 
 file_name = 'game100-gsm8k-09-23-17-39.json'
+mode = 'strict'
 # file_name = 'Qwen2.5-1.5B-Instruct-gsm8k-09-23-17-44.json'
-
+# game100不使用原始prompt17-39： 0.4025, strict 0.3161
+# Game100使用原始prompt21-55：0.3321——所以改了prompt反而效果更差，，strict 0.2009
 def extract_solution(solution_str, method="strict"):
     assert method in ["strict", "flexible"]
     if method == "strict":
         # this also tests the formatting of the model
         # 更精确的正则表达式
-        pattern = r"<answer>(-?\d+\.?\d*)</answer>"
+        pattern = r"<answer>(.*)</answer>"
         # 使用 re.search() 提取最后一个数字
         match = re.search(pattern, solution_str, re.DOTALL)
         if match:
@@ -24,27 +27,7 @@ def extract_solution(solution_str, method="strict"):
             return None 
     elif method == "flexible":
         # 但是这个flexible匹配明明已经是宽松版本了，但还是匹配不到——可能还是训废了？        
-        answer = re.findall("(\\-?[0-9\\.\\,]+)", solution_str)
-        # print(answer)
-        final_answer = None
-        if len(answer) == 0:
-            # no reward is there is no answer
-            pass
-        else:
-            r = 1
-            invalid_str = ["", ".", ',']
-            # find the last number that is not '.'
-            for final_answer in reversed(answer):
-                if final_answer not in invalid_str:
-                    r = 0
-                    break
-            if r:
-                return None
-            # 删除多余的逗号、末尾的多余字符（可能会匹配到末尾的小数点）
-            while not final_answer[-1].isdigit():
-                final_answer = final_answer[:-1]
-            final_answer = final_answer.replace(',', '')
-    return final_answer
+        return solution_str
 
 
 def extract_math(method='strict'):
@@ -60,12 +43,13 @@ def extract_math(method='strict'):
         # 先不考虑这个情况
         ground_truth = math['test']['reward_model'][i]['ground_truth']
         # print(solution)
+        correct = verify(parse(solution), parse(ground_truth))
         if solution is None:
             accs.append(None)
-        elif float(solution) == float(ground_truth):
+        elif correct:
             accs.append(1)
         else:
-            print(solution, ground_truth)
+            # print(solution, ground_truth)
             accs.append(0)
     return accs, answers
 
@@ -76,7 +60,7 @@ math = datasets.load_dataset("parquet",
 # print(math['test']['prompt'][0])
 
 # exit(0)
-accs, answers = extract_math('flexible')
+accs, answers = extract_math(mode)
 acc0 = accs.count(1) / len(accs)
 print('total acc:', acc0)
 print('invalid output:', accs.count(None))

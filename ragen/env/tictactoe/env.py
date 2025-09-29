@@ -103,7 +103,7 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         self.history = []
         self.game_state = np.zeros((self.rows, self.cols), dtype=int)
         self.last_move: Optional[tuple[int, int]] = None
-        self.reset()
+        self.reset(self.seed)
 
     def reset0(self, seed=None):
         # 用于测试环境，初始全0，随机选取先后手
