@@ -6,7 +6,7 @@ from pydantic import model_validator
 import tqdm
 from math_verify import parse, verify
 
-root_path = '/data1/lvnuoyan' # '/root/autodl-tmp'# 
+root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 file_name = 'game100-gsm8k-09-23-17-39.json'
 mode = 'strict'
 # file_name = 'Qwen2.5-1.5B-Instruct-gsm8k-09-23-17-44.json'
