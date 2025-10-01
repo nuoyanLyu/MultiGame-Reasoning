@@ -89,7 +89,8 @@ If the entire grid is filled with pieces and no player has won, the game is a dr
 
 """
 
-prompt0 = f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens). """
+# prompt0 = f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens). """
+prompt0 = f"""Let\'s think step by step and always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens). """
 
 # 自动进行初始测试流程，测试自己-base模型胜率如何
 # 初始化环境信息
