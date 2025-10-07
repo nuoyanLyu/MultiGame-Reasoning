@@ -9,9 +9,9 @@ from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 
 root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
+# model_path = 'math'
 model_path = 'tictactoe-math'
-# model_path = 'tictactoe-math'
-model_name = 'game40'
+model_name = 'game60'
 # tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
 tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
 time_str = time.strftime("%m-%d-%H-%M", time.localtime())

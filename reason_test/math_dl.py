@@ -11,7 +11,7 @@ from verl.utils import hf_tokenizer
 
 root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 model_path = 'tictactoe-math'
-model_name = 'game40'
+model_name = 'game60'
 tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
 # tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
 time_str = time.strftime("%m-%d-%H-%M", time.localtime())
@@ -104,10 +104,10 @@ if __name__ == '__main__':
     # exit(0)
     accs_strict, accs_flex, answers = test_math(llm, sampling_params, math)
     acc0 = accs_strict.count(1) / len(accs_strict)
-    print('-----------------strict mode-----------------')
+    print('-----------strict mode-----------')
     print('total acc:', acc0)
     print('invalid output:', accs_strict.count(None))
-    print('-----------------flexible mode-----------------')
+    print('----------flexible mode----------')
     acc0 = accs_flex.count(1) / len(accs_flex)
     print('total acc:', acc0)
     # answers存储

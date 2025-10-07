@@ -3,7 +3,7 @@ defaults:
 
 trainer:
   experiment_name: TicTacToe
-  save_freq: 20
+  save_freq: 50
 
 actor_rollout_ref:
   rollout:
@@ -11,8 +11,12 @@ actor_rollout_ref:
 
 es_manager:
   train:
+    env_groups: 16 # 多开几个，保证多样性
+    # under the same group, the env config and env seed are ensured to be equal
+    group_size: 16  # 16
     env_configs:
       tags: ["TicTacToe"]
+      n_groups: [16]
   val:
     env_configs:
       tags: ["TicTacToe"]
