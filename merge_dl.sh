@@ -2,9 +2,9 @@
 
 # --- 用户配置部分 ---
 # 模型检查点所在的根目录
-ROOT_DIR="/root/autodl-tmp/tictactoe-gemini-think"
+ROOT_DIR="/root/autodl-tmp/tictactoe-math"
 # 合并后模型保存的根目录
-TAR_ROOT_DIR="/root/autodl-tmp/tictactoe-gemini-think"
+TAR_ROOT_DIR="/root/autodl-tmp/tictactoe-math"
 # Hugging Face 模型的路径
 HF_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
 # --- 用户配置部分结束 ---

@@ -6,26 +6,25 @@ from math_verify import parse, verify
 from openai import NotFoundError
 
 from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed
-from .config import MathEnvConfig
+from .config import MixEnvConfig
 import gymnasium as gym
 import datasets
 import random
 import os
 
-class MathEnv(BaseLanguageBasedEnv, gym.Env):
+class MixEnv(BaseLanguageBasedEnv, gym.Env):
     """
     A Math game environment.
     Inherits from LLMGameEnv and implements the game-specific logic.
     """
     def __init__(self, config=None):
         BaseLanguageBasedEnv.__init__(self)
-        self.config = config if config is not None else MathEnvConfig()
+        self.config = config if config is not None else MixEnvConfig()
         # self.ACTION_SPACE = gym.spaces.discrete.Discrete(2, start=self.config.action_space_start)
         self.render_cache = None
         self.seed = int(self.config.seed)
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
-        self.max_env_try = self.config.max_env_try
         data_path = self.config.data_path
         data_files = self.config.data_files
         self.data_path = f"{data_path}/reasoning/{data_files}"
@@ -33,7 +32,7 @@ class MathEnv(BaseLanguageBasedEnv, gym.Env):
         # 如果不行可能需要每一次加载环境的时候需要通过stream的方式读取数据
         self.mode = self.config.mode
         self.data_train =  datasets.load_dataset("parquet", 
-            data_files=f"{self.data_path}/{self.mode}.parquet")["train"]
+            data_files=f"{self.data_path}/{self.mode}.parquet")['train']
         # test好像没办法加载……先这么放着
         self.question0 = None
         self.history = []
@@ -49,13 +48,34 @@ class MathEnv(BaseLanguageBasedEnv, gym.Env):
     def render(self) -> str:
         # 和之前的get_state_prompt相同的作用 生成当前棋局的信息
         assert self.question0 is not None, "question0 is None, please reset the environment first"
-        prompt = self.question0['extra_info']['question']
+        prompt = self.question0['question']
         return prompt
+
+    def render_for_test(self) -> str:
+        prompt = self.question0['question']
+        prompt += f'\nAnswer is: {self.question0["answer"]}'
+        return prompt
+
+    def _extract_choice(self, text: str):
+        """
+        从文本中提取第一个A-D字母（句首答案），允许格式：
+        - A
+        - A.
+        - A.hello
+        - A something
+        不匹配：
+        - ADHD, BADGE 等单词中嵌入的情况
+        """
+        text = text.strip()
+        match = re.search(r'(?<![A-Za-z])([A-D])(\.|(?:\s|$))', text)
+        if match:
+            return match.group(1).upper()
+        return None
 
     def step(self, action: str) -> Tuple[str, float, bool, Dict]:
         """
         Execute one step in the environment.
-        In MathEnv, the action is the answer to the question.
+        In MixEnv, the action is the answer to the question.
         NOTE should also handle predefined invalid action (0)
         Args:
             action: Action to take, must be in action space, or default invalid action
@@ -66,24 +86,35 @@ class MathEnv(BaseLanguageBasedEnv, gym.Env):
         """
         # 数学题没必要再问一次，直接设置max_turn数量为1
         # 直接对比action和答案是否相同
-        ground_truth = parse(self.question0['extra_info']['answer'])
-        # 提取答案中的数字部分，参考verl中的gsm8k代码设置，匹配最后一位数字并删除多余的字符
-        # match = re.search("(\\-?[0-9\\.\\,]+)", action)
-        # ground_truth中包含大量特殊字符，全部交给math_verify处理，不用过多考虑
-        answer = parse(action)
-        success = verify(answer, ground_truth)
-        reward = int(success)
-        prompt = 'Answer is correct!' if success else 'Answer is incorrect.'
-        done = True
-        valid = not (len(answer) == 0)  # 如果没有匹配到数字，输出的是空列表
+        type = self.question0['type']
+        if type == 'math':
+            ground_truth = parse(self.question0['answer'])
+            answer = parse(action)
+            valid = not (len(answer) == 0)  # 如果没有匹配到数字，输出的是空列表
+            success = verify(answer, ground_truth)
+            reward = int(success)
+            prompt = 'Answer is correct!' if success else 'Answer is incorrect.'
+            done = True
+        else:
+            print("action:", action)
+            # 判定选项是否正确，答案为ABCD其中的一个            
+            answer = self._extract_choice(action)
+            print("answer:", answer)
+
+            if answer is None or answer not in ['A', 'B', 'C', 'D']:
+                success = False
+                valid = False
+            else:
+                success = answer == self.question0['answer']
+                valid = True
+            reward = int(success)
+            prompt = 'Answer is correct!' if success else 'Answer is incorrect.'
+            done = True
         info = {'action_is_effective': success, 'action_is_valid': valid, 'success': success}
         self.history.append({
-            "action": answer
+            "action": answer,
         })
-
         return (prompt, reward, done, info)
-
-        
 
     def close():
         # 清空数据相关的变量信息
@@ -96,12 +127,12 @@ if __name__ == "__main__":
     for key in ["http_proxy", "https_proxy", "all_proxy", 
             "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
         os.environ.pop(key, None)
-    config = MathEnvConfig()
-    env = MathEnv(config)
+    config = MixEnvConfig()
+    env = MixEnv(config)
     # print(env.reset(seed=42))
     while 1:
         env.reset(random.randint(0, 1000))
-        print(env.render())
+        print(env.render_for_test())
         keyboard = input("Enter answer: ")
         if keyboard == 'q':
             break
