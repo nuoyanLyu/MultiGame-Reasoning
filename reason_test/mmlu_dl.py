@@ -6,6 +6,7 @@ import datasets
 import tqdm
 from math_verify import parse, verify
 import os
+import logging
 from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
@@ -87,7 +88,7 @@ def extract_choice(text: str):
     return None
 
 
-def test_math(llm, sampling_params, mmlu):
+def test_mmlu(llm, sampling_params, mmlu):
     answers = []
     accs = {}
     for i in tqdm.trange(0, len(mmlu['question']), batch_size):  # len(math['test'])
@@ -109,30 +110,21 @@ def test_math(llm, sampling_params, mmlu):
             if label not in accs:
                 accs[label] = []
             accs[label].append(choice)
-            exit(0)
             
     return answers, accs
 
 if __name__ == '__main__':
+    os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
+    os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
+
+    logging.getLogger("vllm").setLevel(logging.ERROR)
     path0 = f'{root_path}/reasoning'
     # 加载 MMLU 数据集，全部数据集all、对应数据字段test
     mmlu = load_dataset(f"{path0}/mmlu/", 'all')['test']
     llm, sampling_params = load_llm()
     # exit(0)
-    accs, answers = test_mmlu(llm, sampling_params, mmlu)
-    acc0 = accs.count(1) / len(accs)
-    print('model:', model_name)
-    print('mmlu test set')
-    print('-----strict mode-----')
-    acc_list = []
-    for k in acc.keys():
-        acc0 = acc[k].count(1) / len(acc[k])
-        invalid = acc[k].count(None) / len(acc[k])
-        print(k, format(acc0, '.4f'))
-        print('invalid_output', format(invalid, '.4f'))
-        acc_list += acc0
-    print('total acc:', format(acc_list.count(1) / len(acc_list), '.4f'))
-    print('invalid output:', format(acc_list.count(None) / len(acc_list), '.4f'))
+    answers, acc = test_mmlu(llm, sampling_params, mmlu)
+    
     # answers存储
     with open(f'reason_test/mmlu-{model_name}-{time_str}.json', 'w') as f:
         json.dump(answers, f)
