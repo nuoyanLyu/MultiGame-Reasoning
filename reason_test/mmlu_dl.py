@@ -105,12 +105,11 @@ def test_math(llm, sampling_params, math):
 
 if __name__ == '__main__':
     path0 = f'{root_path}/reasoning'
-    math = datasets.load_dataset("parquet", 
-                  data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
-    # print(math['test']['prompt'][0])
+    # 加载 MMLU 数据集，全部数据集all、对应数据字段test
+    mmlu = load_dataset(f"{root_path}/mmlu/", 'all')['test']
     llm, sampling_params = load_llm()
     # exit(0)
-    accs_strict, accs_flex, answers = test_math(llm, sampling_params, math)
+    accs_strict, accs_flex, answers = test_mmlu(llm, sampling_params, mmlu)
     acc0 = accs_strict.count(1) / len(accs_strict)
     print('-----strict mode-----')
     print('total acc:', format(acc0, '.4f'))
