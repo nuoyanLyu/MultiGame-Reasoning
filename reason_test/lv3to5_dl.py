@@ -4,7 +4,7 @@ import time
 import datasets
 import tqdm
 from math_verify import parse, verify
-import os
+import os, logging
 from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
@@ -18,8 +18,8 @@ parser.add_argument("--model_name", type=str, default="Qwen2.5-1.5B-Instruct")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
-# tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
-tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
+tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
+# tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
 time_str = time.strftime("%m-%d-%H-%M", time.localtime())
 # file_name = 'game100-gsm8k-09-23-17-39.json'
 # file_name = 'Qwen2.5-1.5B-Instruct-gsm8k-09-23-17-44.json'
@@ -29,9 +29,13 @@ time_str = time.strftime("%m-%d-%H-%M", time.localtime())
 def load_llm():
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+    os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
+    os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
+
+    logging.getLogger("vllm").setLevel(logging.ERROR)
     # tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-    # model = f'{root_path}/{model_path}/{model_name}'
-    model = f"{root_path}/{model_name}"
+    model = f'{root_path}/{model_path}/{model_name}'
+    # model = f"{root_path}/{model_name}"
     # ro_config = config.actor_rollout_ref.rollout
     llm = LLM(
 		model,
@@ -115,6 +119,8 @@ if __name__ == '__main__':
     # exit(0)
     accs_strict, accs_flex, answers = test_math(llm, sampling_params, math)
     acc0 = accs_strict.count(1) / len(accs_strict)
+    print('model:', model_name)
+    print('math lv3-5 test set')
     print('-----strict mode-----')
     print('total acc:', format(acc0, '.4f'))
     print('invalid output:', accs_strict.count(None))

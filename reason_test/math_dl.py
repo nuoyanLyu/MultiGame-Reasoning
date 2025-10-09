@@ -5,7 +5,7 @@ import time
 import datasets
 import tqdm
 from math_verify import parse, verify
-import os
+import os, logging
 from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
@@ -104,6 +104,10 @@ def test_math(llm, sampling_params, math):
     return accs_strict, accs_flex, answers
 
 if __name__ == '__main__':
+    os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
+    os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
+
+    logging.getLogger("vllm").setLevel(logging.ERROR)
     path0 = f'{root_path}/reasoning'
     math = datasets.load_dataset("parquet", 
                   data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
@@ -112,6 +116,8 @@ if __name__ == '__main__':
     # exit(0)
     accs_strict, accs_flex, answers = test_math(llm, sampling_params, math)
     acc0 = accs_strict.count(1) / len(accs_strict)
+    print('model:', model_name)
+    print('gsm8k test set')
     print('-----strict mode-----')
     print('total acc:', format(acc0, '.4f'))
     print('invalid output:', accs_strict.count(None))
