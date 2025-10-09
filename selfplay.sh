@@ -13,9 +13,9 @@ BASE_MODEL="Qwen2.5-1.5B-Instruct"
 MODEL_DIR="$ROOT_DIR/$TRAIN_ENV"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
-START=180
+START=100
 END=300
-STEP=20
+STEP=50
 
 # 对手模型的GPU id以及对应的vllm serve端口
 GPU_DEVICE_ID=2

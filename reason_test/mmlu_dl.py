@@ -9,12 +9,13 @@ import os
 from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
+from datasets import load_dataset
 
 root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 batch_size = 16
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="tictactoe")
-parser.add_argument("--model_name", type=str, default="game50")
+parser.add_argument("--model_path", type=str, default="mix")
+parser.add_argument("--model_name", type=str, default="mix50")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
@@ -49,8 +50,7 @@ def reformat_prompt(prompt0):
     # 将prompt句子末尾的 Let\'s think step by step and output the final answer after "####".
     # 替换为Let\'s think step by step and output your think and final answer in this format: 
     # <think> [your thought] </think> <answer> [your answer] </answer>
-    prompt = prompt0.replace("Let\'s think step by step and output the final answer after \"####\".", 
-                             "Let\'s think step by step and always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens).")
+    prompt = prompt0 + "Let\'s think step by step and always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."
     message = [{"role": "system", "content": "You're a helpful assistant. "},
                {"role": "user", "content": prompt}]
     # apply_chat_template
@@ -62,61 +62,77 @@ def extract_solution(solution_str):
     pattern = r"<answer>(.*)</answer>"
     # 使用 re.search() 提取最后一个数字
     match = re.search(pattern, solution_str, re.DOTALL)
-    solu_flex = solution_str
     if match:
         last_number = match.group(1)  # 提取匹配到的最后一个数字
         solu_strict = last_number
-        solu_flex = last_number
     else:
         solu_strict = None 
-    return solu_strict, solu_flex
+    return solu_strict
 
 
-def test_math(llm, sampling_params, math):
-    accs_strict = []
-    accs_flex = []
+def extract_choice(text: str):
+    """
+    从文本中提取第一个A-D字母（句首答案），允许格式：
+    - A
+    - A.
+    - A.hello
+    - A something
+    不匹配：
+    - ADHD, BADGE 等单词中嵌入的情况
+    """
+    text = text.strip()
+    match = re.search(r'(?<![A-Za-z])([A-D])(\.|(?:\s|$))', text)
+    if match:
+        return match.group(1).upper()
+    return None
+
+
+def test_math(llm, sampling_params, mmlu):
     answers = []
-    for i in tqdm.trange(0, len(math['test']), batch_size):  # len(math['test'])
+    accs = {}
+    for i in tqdm.trange(0, len(mmlu['question']), batch_size):  # len(math['test'])
         # 调整prompt内容，之前的格式不太对劲，导致模型输出的最后一个数字不是最后一个数字
-        data = math['test'][i: i + batch_size]
-        prompt = [reformat_prompt(data['prompt'][j][0]['content']) for j in range(len(data['prompt']))]# 模型推理
+        data = mmlu[i: i + batch_size]
+        prompt = [reformat_prompt(data['question'][j]) for j in range(len(data['question']))]# 模型推理
         outputs = llm.generate(prompt, sampling_params)
         for j, out in enumerate(outputs):
-            solu_strict, solu_flex = extract_solution(out.outputs[0].text)
+            # answer, choices, subject
+            solution = extract_solution(out.outputs[0].text)
             answers.append(out.outputs[0].text)
-            # print(outputs[0].outputs[0].text)
-            ground_truth = parse(data['reward_model'][j]['ground_truth'])
-            correct_strict = verify(parse(solu_strict), ground_truth)
-            if solu_strict is None:
-                accs_strict.append(None)
-            elif correct_strict:
-                accs_strict.append(1)
+            label = data['subject'][j]
+            if solution is None:
+                choice = None
             else:
-                # print(solution, ground_truth)
-                accs_strict.append(0)
-            correct_flex = verify(parse(solu_flex), ground_truth)
-            if solu_flex is None:
-                accs_flex.append(None)
-            elif correct_flex:
-                accs_flex.append(1)
-            else:
-                accs_flex.append(0)
-    return accs_strict, accs_flex, answers
+                choice = extract_choice(solution)
+                ground_truth = ['A', 'B', 'C', 'D'][data['answer'][j]]
+                choice = (choice == ground_truth)
+            if label not in accs:
+                accs[label] = []
+            accs[label].append(choice)
+            exit(0)
+            
+    return answers, accs
 
 if __name__ == '__main__':
     path0 = f'{root_path}/reasoning'
     # 加载 MMLU 数据集，全部数据集all、对应数据字段test
-    mmlu = load_dataset(f"{root_path}/mmlu/", 'all')['test']
+    mmlu = load_dataset(f"{path0}/mmlu/", 'all')['test']
     llm, sampling_params = load_llm()
     # exit(0)
-    accs_strict, accs_flex, answers = test_mmlu(llm, sampling_params, mmlu)
-    acc0 = accs_strict.count(1) / len(accs_strict)
+    accs, answers = test_mmlu(llm, sampling_params, mmlu)
+    acc0 = accs.count(1) / len(accs)
+    print('model:', model_name)
+    print('mmlu test set')
     print('-----strict mode-----')
-    print('total acc:', format(acc0, '.4f'))
-    print('invalid output:', accs_strict.count(None))
-    print('----flexible mode----')
-    acc0 = accs_flex.count(1) / len(accs_flex)
-    print('total acc:', format(acc0, '.4f'))
+    acc_list = []
+    for k in acc.keys():
+        acc0 = acc[k].count(1) / len(acc[k])
+        invalid = acc[k].count(None) / len(acc[k])
+        print(k, format(acc0, '.4f'))
+        print('invalid_output', format(invalid, '.4f'))
+        acc_list += acc0
+    print('total acc:', format(acc_list.count(1) / len(acc_list), '.4f'))
+    print('invalid output:', format(acc_list.count(None) / len(acc_list), '.4f'))
     # answers存储
-    with open(f'reason_test/gsm8k-{model_name}-{time_str}.json', 'w') as f:
+    with open(f'reason_test/mmlu-{model_name}-{time_str}.json', 'w') as f:
         json.dump(answers, f)
