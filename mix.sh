@@ -16,7 +16,7 @@ WANDB_MODE=offline RAY_DEDUP_LOGS=0 python train.py --config-name _11_mix \
  system.CUDA_VISIBLE_DEVICES=\"0,1\" \
  model_path=/root/autodl-tmp/Qwen2.5-1.5B-Instruct \
  trainer.default_local_dir=$LOCAL_PATH \
- trainer.total_training_steps=200 \
+ trainer.total_training_steps=400 \
  trainer.n_gpus_per_node=2 \
  actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
  trainer.experiment_name=mix \
