@@ -96,11 +96,8 @@ class MixEnv(BaseLanguageBasedEnv, gym.Env):
             prompt = 'Answer is correct!' if success else 'Answer is incorrect.'
             done = True
         else:
-            print("action:", action)
             # 判定选项是否正确，答案为ABCD其中的一个            
             answer = self._extract_choice(action)
-            print("answer:", answer)
-
             if answer is None or answer not in ['A', 'B', 'C', 'D']:
                 success = False
                 valid = False
