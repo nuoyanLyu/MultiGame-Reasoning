@@ -15,8 +15,8 @@ from datasets import load_dataset
 root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 batch_size = 16
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="tictactoe-selfplay")
-parser.add_argument("--model_name", type=str, default="game150")
+parser.add_argument("--model_path", type=str, default="mix")
+parser.add_argument("--model_name", type=str, default="mix50")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
@@ -120,6 +120,36 @@ def test_mmlu(llm, sampling_params, mmlu):
             
     return answers, accs
 
+
+def save_results_to_markdown(acc, model_name, output_file='reason_test/mmlu-results.txt'):
+    acc_list = []
+    rows = []
+    print('mmlu, model', model_name)
+    # 计算每个 key 的准确率和 invalid 率
+    for k in acc.keys():
+        total = len(acc[k])
+        valid = acc[k].count(1)
+        acc_rate = valid / total
+
+        # 构造 markdown 表格每一行
+        rows.append(f"| {k} | {acc_rate:.4f} |")
+
+        acc_list += acc[k]
+
+    total_acc = acc_list.count(1) / len(acc_list)
+    total_invalid = acc_list.count(None) / len(acc_list)
+
+    with open(output_file, "a") as f:
+        f.write(f"\n## Model: {model_name}\n\n")
+        f.write(f"| Subject | {model_name} |\n")
+        f.write("|----------|-----------|\n")
+        for row in rows:
+            f.write(row + "\n")
+        f.write(f"| **Total** | **{total_acc:.4f}** |\n\n")
+    print(f"total acc: {total_acc:.4f}")
+    print(f"Results saved to {output_file}")
+
+
 if __name__ == '__main__':
     os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
     os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
@@ -132,14 +162,4 @@ if __name__ == '__main__':
     # exit(0)
     answers, acc = test_mmlu(llm, sampling_params, mmlu)
     acc_list = []
-    for k in acc.keys():
-        acc0 = acc[k].count(1) / len(acc[k])
-        invalid = acc[k].count(None) / len(acc[k])
-        print(k, format(acc0, '.4f'))
-        print('invalid_output', format(invalid, '.4f'))
-        acc_list += acc[k]
-    print('total acc:', format(acc_list.count(1) / len(acc_list), '.4f'))
-    print('invalid output:', format(acc_list.count(None) / len(acc_list), '.4f'))
-    # answers存储
-    with open(f'reason_test/mmlu-{model_name}-{time_str}.json', 'w') as f:
-        json.dump(answers, f)
+    save_results_to_markdown(acc, model_name)

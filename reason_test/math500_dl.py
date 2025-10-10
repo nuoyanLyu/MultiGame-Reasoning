@@ -13,8 +13,8 @@ root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan'
 batch_size = 16
 # model_path = 'math'
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="tictactoe-selfplay")
-parser.add_argument("--model_name", type=str, default="game150")
+parser.add_argument("--model_path", type=str, default="mix")
+parser.add_argument("--model_name", type=str, default="mix50")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
@@ -82,13 +82,13 @@ def test_math(llm, sampling_params, math):
     for i in tqdm.trange(0, len(math), batch_size):  # len(math['test'])
         # 调整prompt内容，之前的格式不太对劲，导致模型输出的最后一个数字不是最后一个数字
         data = math[i: i + batch_size]
-        prompts = [reformat_prompt(data[j]['problem']) for j in range(len(data))]# 模型推理
+        prompts = [reformat_prompt(data['problem'][j]) for j in range(len(data['problem']))]# 模型推理
         outputs = llm.generate(prompts, sampling_params)
         for j, out in enumerate(outputs):
             solu_strict, solu_flex = extract_solution(out.outputs[0].text)
             answers.append(out.outputs[0].text)
             # print(outputs[0].outputs[0].text)
-            ground_truth = parse(data[j]['answer'])
+            ground_truth = parse(data['answer'][j])
             correct_strict = verify(parse(solu_strict), ground_truth)
             if solu_strict is None:
                 accs_strict.append(None)
@@ -107,6 +107,28 @@ def test_math(llm, sampling_params, math):
     return accs_strict, accs_flex, answers
 
 
+def save_log(model_name, accs_strict, accs_flex, output_file="reason_test/math500-log.txt"):
+    acc0_strict = accs_strict.count(1) / len(accs_strict)
+    invalid_strict = accs_strict.count(None)
+    acc0_flex = accs_flex.count(1) / len(accs_flex)
+
+    # 自动创建输出目录
+    import os
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+    # 写入日志文件
+    with open(output_file, "a") as f:
+        f.write(f"\n=== Model: {model_name} ===\n")
+        f.write("math 500 test set\n")
+        f.write("-----strict mode-----\n")
+        f.write(f"total acc: {acc0_strict:.4f}\n")
+        f.write(f"invalid output: {invalid_strict}\n")
+        f.write("----flexible mode----\n")
+        f.write(f"total acc: {acc0_flex:.4f}\n")
+
+    print(f"✅ Log saved to {output_file}")
+
+
 # 复制出问题了，需要改回mathlv3-5的数据集
 if __name__ == '__main__':
     path0 = f'{root_path}/reasoning'
@@ -114,18 +136,11 @@ if __name__ == '__main__':
     #               data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
     # # print(math['test']['prompt'][0])
     math = datasets.load_dataset(f"{path0}/MATH-500")['test']
-    llm, sampling_params = load_llm()
+    # llm, sampling_params = load_llm()
+    llm, sampling_params = None, None
     # exit(0)
     accs_strict, accs_flex, answers = test_math(llm, sampling_params, math)
-    acc0 = accs_strict.count(1) / len(accs_strict)
-    print('model:', model_name)
-    print('math 500 test set')
-    print('-----strict mode-----')
-    print('total acc:', format(acc0, '.4f'))
-    print('invalid output:', accs_strict.count(None))
-    print('----flexible mode----')
-    acc0 = accs_flex.count(1) / len(accs_flex)
-    print('total acc:', format(acc0, '.4f'))
+    save_log(model_name, accs_strict, accs_flex)
     # answers存储
     with open(f'reason_test/math500-{model_name}-{time_str}.json', 'w') as f:
         json.dump(answers, f)
