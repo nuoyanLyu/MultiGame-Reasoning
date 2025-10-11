@@ -83,7 +83,6 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
                 action_is_valid=False,
                 action_is_effective=False,
                 success=False,
-                reason="invalid_action",
             )
             self._done = True
             return self.last_prompt, 0, True, info
