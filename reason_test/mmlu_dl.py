@@ -12,11 +12,11 @@ from verl.utils import hf_tokenizer
 import argparse
 from datasets import load_dataset
 
-root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
+root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
 batch_size = 16
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="mix")
-parser.add_argument("--model_name", type=str, default="mix50")
+parser.add_argument("--model_path", type=str, default="tictactoe")
+parser.add_argument("--model_name", type=str, default="game50")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
 
     logging.getLogger("vllm").setLevel(logging.ERROR)
-    path0 = f'{root_path}/reasoning'
+    path0 = f'/root/autodl-tmp/reasoning'
     # 加载 MMLU 数据集，全部数据集all、对应数据字段test
     mmlu = load_dataset(f"{path0}/mmlu/", 'all')['test']
     llm, sampling_params = load_llm()

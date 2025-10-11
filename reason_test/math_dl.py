@@ -10,7 +10,7 @@ from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
 
-root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
+root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
 batch_size = 16
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_path", type=str, default="tictactoe")
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
 
     logging.getLogger("vllm").setLevel(logging.ERROR)
-    path0 = f'{root_path}/reasoning'
+    path0 = f'/root/autodl-tmp/reasoning'
     math = datasets.load_dataset("parquet", 
                   data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
     # print(math['test']['prompt'][0])
