@@ -1,0 +1,28 @@
+defaults:
+  - base
+
+trainer:
+  experiment_name: nash
+  save_freq: 50
+
+actor_rollout_ref:
+  rollout:
+    max_model_len: 6000 
+es_manager:  # 数值沿用原始设定，并没有缩小规模
+  format_penalty: -0.1
+  train:
+    env_groups: 16 # 8 + 2
+    # under the same group, the env config and env seed are ensured to be equal
+    group_size: 16  # 16
+    env_configs:
+      tags: ["Nash"]
+      n_groups: [16] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+  val:
+    env_groups: 32 # 256 -> 32
+    group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
+    env_configs:
+      tags: ["Nash"]
+      n_groups: [32] # [256] -> [32] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+
+agent_proxy:
+  max_turn: 1  # 数学题不需要反复问，直接终止就行——这个会影响到数学+game的联合训练？

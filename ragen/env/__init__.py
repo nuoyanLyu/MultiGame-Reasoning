@@ -18,6 +18,8 @@ from .math_lv3to5.env import MathEnv
 from .math_lv3to5.config import MathEnvConfig
 from .mix_data.env import MixEnv
 from .mix_data.config import MixEnvConfig
+from .nashenv.env import NashEnv
+from .nashenv.config import NashEnvConfig
 
 
 REGISTERED_ENVS = {
@@ -31,6 +33,7 @@ REGISTERED_ENVS = {
     'tictactoe': TicTacToeEnv,
     'math_lv3to5': MathEnv,
     'mix_data': MixEnv,
+    'nash': NashEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -44,6 +47,7 @@ REGISTERED_ENV_CONFIGS = {
     'tictactoe': TicTacToeEnvConfig,
     'math_lv3to5': MathEnvConfig,
     'mix_data': MixEnvConfig,
+    'nash': NashEnvConfig,
 }
 
 try:

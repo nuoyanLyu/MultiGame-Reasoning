@@ -3,21 +3,28 @@ from __future__ import annotations
 from typing import Dict, Any, Tuple, List, Optional
 import numpy as np
 import nashpy as nash  
+import random
+import gymnasium as gym
 from .config import NashEnvConfig
+from ragen.env.base import BaseLanguageBasedEnv, seed_everything, timed
 
 
-class NashEnv:
+class NashEnv(BaseLanguageBasedEnv, gym.Env):
     """
     完全信息 2x2 矩阵博弈环境（接口与 bandit 对齐）
       - reset(seed) -> str
       - step(action) -> (str, reward, done, info)
       - render() -> str
     """
-
     metadata = {"render.modes": ["human"]}
 
     def __init__(self, config: Optional[NashEnvConfig] = None):
+        BaseLanguageBasedEnv.__init__(self) 
         self.config = config or NashEnvConfig()
+        self.render_cache = None
+        self.seed = int(self.config.seed)
+        self.render_mode = self.config.render_mode
+        assert self.render_mode == 'text'
         self.np_random: Optional[np.random.RandomState] = None
 
         # payoff matrices
@@ -29,22 +36,26 @@ class NashEnv:
         self.variant_idx: int = 0
         self.last_prompt: str = ""
         self._done: bool = False
-        self.valid_actions: List[int] = [1, 2]
+        self.valid_actions: List[str] = ['1', '2']
         self.templates = self._build_templates()
-        self.seed = self.config.seed
+        self.history = []
 
         self.reset(self.seed)
 
     #bandit接口 
-    def reset(self, seed: Optional[int] = None) -> str:
+    def reset(self, seed: Optional[int] = None, **kwargs) -> str:
         if seed is not None:
             self.np_random = np.random.RandomState(seed)
+            seed_everything(seed)
         elif self.np_random is None:
             self.np_random = np.random.RandomState(0)
+            seed_everything(0)
         self._done = False
 
-        # payoff matrices 来自 config
-        self.A, self.B = self.config.get_payoff_matrices()
+        # payoff matrices 来自 config——随机选取游戏，对应修改config的setting
+        games = ["PD", "SH", "MP"]
+        game = self.np_random.choice(games)
+        self.A, self.B = self.config.get_payoff_matrices(game)
 
         self.variant_idx = int(self.np_random.randint(0, len(self.templates)))
         if self.config.force_role in ("P1", "P2"):
@@ -56,19 +67,17 @@ class NashEnv:
 
     def step(self, action: str) -> Tuple[str, int, bool, Dict[str, Any]]:
         """根据 nashpy计算NE给reward"""
-        if self._done:
-            info = dict(
-                action_is_valid=False,
-                action_is_effective=False,
-                success=False,
-                reason="episode_already_done",
-            )
-            return self.last_prompt, 0, True, info
-        try:
-            action = int(action)
-            is_valid = action in self.valid_actions
-        except:
-            is_valid = False
+        # if self._done:
+        #     info = dict(
+        #         action_is_valid=False,
+        #         action_is_effective=False,
+        #         success=False,
+        #         reason="episode_already_done",
+        #     )
+        #     return self.last_prompt, 0, True, info
+        self.history.append(action)
+        is_valid = action in self.valid_actions
+        # print(type(action), self.valid_actions)
         if not is_valid:
             info = dict(
                 action_is_valid=False,
@@ -80,7 +89,7 @@ class NashEnv:
             return self.last_prompt, 0, True, info
         game = nash.Game(np.array(self.A), np.array(self.B))
         NE = self._pure_nash_equilibria()  # [(row, col), ...]
-
+        action = int(action)
         idx = action - 1
         success = False
         if self.role == "P1":
@@ -96,8 +105,6 @@ class NashEnv:
             "action_is_valid": True,
             "action_is_effective": success,
             "success": success,
-            "role": self.role,
-            "NE": [(int(r), int(c)) for (r, c) in NE],
         }
         return self.last_prompt, reward, True, info
 
@@ -128,6 +135,7 @@ class NashEnv:
         # Markdown 双表
         templates.append(
             "{role}.\n\n"
+            "Rows = Player 1's actions [{p1a}, {p1b}]; Columns = Player 2's actions [{p2x}, {p2y}].\n\n"
             "### P1's payoff\n"
             "|      | {p2x} | {p2y} |\n"
             "|------|-------|-------|\n"
@@ -144,6 +152,7 @@ class NashEnv:
         # 单表(P1,P2)
         templates.append(
             "{role}.\n\n"
+            "Each cell shows (P1 payoff, P2 payoff). Rows = [{p1a}, {p1b}], Columns = [{p2x}, {p2y}].\n"
             "|      | {p2x}         | {p2y}         |\n"
             "|------|---------------|---------------|\n"
             "| {p1a} | ({A11},{B11}) | ({A12},{B12}) |\n"
@@ -154,6 +163,7 @@ class NashEnv:
         # 逐格文字
         templates.append(
             "{role}.\n\n"
+            "The payoffs for each combination of actions are as follows:\n"
             "- If P1={p1a}, P2={p2x} → (P1:{A11}, P2:{B11})\n"
             "- If P1={p1a}, P2={p2y} → (P1:{A12}, P2:{B12})\n"
             "- If P1={p1b}, P2={p2x} → (P1:{A21}, P2:{B21})\n"
@@ -161,18 +171,19 @@ class NashEnv:
             "{instr}\n"
         )
 
-        # 数组
+        # 数组（增加说明）
         templates.append(
             "{role}.\n\n"
-            "P1 payoff = [[{A11},{A12}],[{A21},{A22}]]\n"
-            "P2 payoff = [[{B11},{B12}],[{B21},{B22}]]\n\n"
+            "Rows = [{p1a}, {p1b}], Columns = [{p2x}, {p2y}].\n"
+            "P1 payoff matrix = [[{A11},{A12}],[{A21},{A22}]]\n"
+            "P2 payoff matrix = [[{B11},{B12}],[{B21},{B22}]]\n\n"
             "{instr}\n"
         )
 
         # 对话体
         templates.append(
             "{role}.\n\n"
-            "You (P1) vs Opponent (P2).\n"
+            "You (P1) vs Opponent (P2). Rows = P1's actions [{p1a}, {p1b}], Columns = P2's actions [{p2x}, {p2y}].\n"
             "P1 payoff: [[{A11},{A12}],[{A21},{A22}]]\n"
             "P2 payoff: [[{B11},{B12}],[{B21},{B22}]]\n\n"
             "{instr}\n"
@@ -181,7 +192,7 @@ class NashEnv:
         # Alice/Bob
         templates.append(
             "{role}.\n\n"
-            "Alice (P1) and Bob (P2) play a game.\n"
+            "Alice (P1) and Bob (P2) play a game. Rows = Alice's actions [{p1a}, {p1b}], Columns = Bob's actions [{p2x}, {p2y}].\n"
             "|      | {p2x}         | {p2y}         |\n"
             "|------|---------------|---------------|\n"
             "| {p1a} | ({A11},{B11}) | ({A12},{B12}) |\n"
@@ -192,7 +203,7 @@ class NashEnv:
         # 公司竞争
         templates.append(
             "{role}.\n\n"
-            "Company A (P1) and Company B (P2).\n"
+            "Company A (P1) and Company B (P2). Actions for A: [{p1a}, {p1b}], for B: [{p2x}, {p2y}].\n"
             "- ({p1a},{p2x}) = ({A11},{B11})\n"
             "- ({p1a},{p2y}) = ({A12},{B12})\n"
             "- ({p1b},{p2x}) = ({A21},{B21})\n"
@@ -203,7 +214,7 @@ class NashEnv:
         # 动物狩猎
         templates.append(
             "{role}.\n\n"
-            "Two animals choose strategies:\n"
+            "Two animals choose strategies. One is P1 (rows: [{p1a}, {p1b}]), the other is P2 (columns: [{p2x}, {p2y}]).\n"
             "|      | {p2x}         | {p2y}         |\n"
             "|------|---------------|---------------|\n"
             "| {p1a} | ({A11},{B11}) | ({A12},{B12}) |\n"
@@ -214,7 +225,7 @@ class NashEnv:
         # Q&A 
         templates.append(
             "{role}.\n\n"
-            "Q: What are the payoffs?\n"
+            "Q: What are the payoffs (Rows = P1 actions [{p1a}, {p1b}], Columns = P2 actions [{p2x}, {p2y}])?\n"
             "A: ({p1a},{p2x})=({A11},{B11}), "
             "({p1a},{p2y})=({A12},{B12}), "
             "({p1b},{p2x})=({A21},{B21}), "
@@ -225,17 +236,17 @@ class NashEnv:
         # 分步骤
         templates.append(
             "{role}.\n\n"
-            "Step 1: Observe payoff matrices\n"
-            "- P1: [[{A11},{A12}],[{A21},{A22}]]\n"
-            "- P2: [[{B11},{B12}],[{B21},{B22}]]\n"
+            "Step 1: Observe payoff matrices (Rows = P1 actions [{p1a}, {p1b}], Columns = P2 actions [{p2x}, {p2y}]).\n"
+            "- P1 payoff: [[{A11},{A12}],[{A21},{A22}]]\n"
+            "- P2 payoff: [[{B11},{B12}],[{B21},{B22}]]\n"
             "Step 2: Decide.\n\n"
             "{instr}\n"
         )
 
-        #  极简
+        # 极简
         templates.append(
             "{role}.\n\n"
-            "Game:\n"
+            "Game (Rows = P1 actions [{p1a}, {p1b}], Columns = P2 actions [{p2x}, {p2y}]):\n"
             "A = [[{A11},{A12}],[{A21},{A22}]]\n"
             "B = [[{B11},{B12}],[{B21},{B22}]]\n\n"
             "{instr}\n"
@@ -244,7 +255,7 @@ class NashEnv:
         # 强调完全信息
         templates.append(
             "{role}.\n\n"
-            "This is a complete-information 2x2 game.\n"
+            "This is a complete-information 2x2 game. Rows = [{p1a}, {p1b}], Columns = [{p2x}, {p2y}].\n"
             "|      | {p2x}         | {p2y}         |\n"
             "|------|---------------|---------------|\n"
             "| {p1a} | ({A11},{B11}) | ({A12},{B12}) |\n"
@@ -280,18 +291,27 @@ class NashEnv:
         )
 
 
-# 本地演示
 if __name__ == "__main__":
     from .config import NashEnvConfig
-    cfg = NashEnvConfig(game="PD")
+    cfg = NashEnvConfig()
     env = NashEnv(cfg)
+    while 1:
+        obs = env.reset(seed=random.randint(0, 1000))
+        print(obs)
+        action = input("Enter action: ")
+        if action == 'q':
+            break
+        obs, reward, done, info = env.step(action)
+        print("reward:", reward, "done:", done)
+        print(info)
 
-    print("RESET (seed=42)")
-    obs = env.reset(seed=10)
-    print(obs)
+    # print(obs)
 
-    print("STEP (action=2)")
-    obs2, reward, done, info = env.step('1')
-    print("reward:", reward, "done:", done)
-    print("NE:", info["NE"])
-    print("success:", info["success"])
+    # print("STEP (action=2)")
+    # obs2, reward, done, info = env.step(2)
+    # print("reward:", reward, "done:", done)
+    # print("NE:", info["NE"])
+    # print("success:", info["success"])
+
+    # print("RENDER")
+    # print(env.render())

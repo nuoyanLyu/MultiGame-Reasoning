@@ -65,6 +65,13 @@ custom_envs:
       data_files: "merge_mmlu_math"
       mode: "test"
   
+  Nash:
+    env_type: nashenv
+    max_actions_per_traj: 1 # used in environment state manager to control the actual max actions executed per trajectory
+    env_instruction: ""
+    max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
+    env_config:
+      seed: 123
 
   SimpleSokoban:
     env_type: sokoban
