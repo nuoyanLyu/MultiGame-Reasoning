@@ -33,7 +33,7 @@ REGISTERED_ENVS = {
     'tictactoe': TicTacToeEnv,
     'math_lv3to5': MathEnv,
     'mix_data': MixEnv,
-    'nash': NashEnv,
+    'nashenv': NashEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -47,7 +47,7 @@ REGISTERED_ENV_CONFIGS = {
     'tictactoe': TicTacToeEnvConfig,
     'math_lv3to5': MathEnvConfig,
     'mix_data': MixEnvConfig,
-    'nash': NashEnvConfig,
+    'nashenv': NashEnvConfig,
 }
 
 try:
