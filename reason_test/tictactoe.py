@@ -25,7 +25,7 @@ config = TicTacToeEnvConfig(
 )
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_path", type=str, default="tictactoe")
-parser.add_argument("--model_name", type=str, default="game50")
+parser.add_argument("--model_name", type=str, default="game100")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
