@@ -126,3 +126,5 @@ my_test/
 reason_test/*.json
 # lm-eval result files
 reason_test/lm-eval/ 
+# test datafiles
+reason_test/*.txt

@@ -24,8 +24,8 @@ config = TicTacToeEnvConfig(
     ]
 )
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="mix")
-parser.add_argument("--model_name", type=str, default="mix100")
+parser.add_argument("--model_path", type=str, default="tictactoe")
+parser.add_argument("--model_name", type=str, default="game50")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
@@ -113,9 +113,13 @@ if __name__ == '__main__':
     # 统计info_list中出现的不同情况的次数并计算对应的比例
     counter = Counter(info_list)
     total = len(info_list)
-    for key, value in counter.items():
-        print(f"{key}: {value / total:.2%}")
-    print('tictactoe v.s.', config.player_info[0]['model_name'])
-    print('model', model_name)
+    # 存储结果文件
+    with open('reason_test/tictactoe-log.txt', 'a') as f:
+        f.write(f"\n=== Model: {model_name} ===\n")
+        f.write("tictactoe test set\n")
+        for key, value in counter.items():
+            f.write(f"{key}: {value / total:.2%}\n")
+        f.write(f"tictactoe v.s. {config.player_info[0]['model_name']}\n")
+        f.write(f"model: {model_name}\n\n")
  
 
