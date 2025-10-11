@@ -13,13 +13,13 @@ root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan'
 batch_size = 16
 # model_path = 'math'
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="mix")
-parser.add_argument("--model_name", type=str, default="mix50")
+# parser.add_argument("--model_path", type=str, default="mix")
+parser.add_argument("--model_name", type=str, default="Qwen2.5-1.5B-Instruct")
 args = parser.parse_args()
-model_path = args.model_path
+# model_path = args.model_path
 model_name = args.model_name
-tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
-# tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
+# tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
+tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
 time_str = time.strftime("%m-%d-%H-%M", time.localtime())
 # file_name = 'game100-gsm8k-09-23-17-39.json'
 # file_name = 'Qwen2.5-1.5B-Instruct-gsm8k-09-23-17-44.json'
@@ -34,8 +34,8 @@ def load_llm():
 
     logging.getLogger("vllm").setLevel(logging.ERROR)
     # tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-    model = f'{root_path}/{model_path}/{model_name}'
-    # model = f"{root_path}/{model_name}"
+    # model = f'{root_path}/{model_path}/{model_name}'
+    model = f"{root_path}/{model_name}"
     # ro_config = config.actor_rollout_ref.rollout
     llm = LLM(
 		model,
@@ -87,7 +87,6 @@ def test_math(llm, sampling_params, math):
         for j, out in enumerate(outputs):
             solu_strict, solu_flex = extract_solution(out.outputs[0].text)
             answers.append(out.outputs[0].text)
-            # print(outputs[0].outputs[0].text)
             ground_truth = parse(data['answer'][j])
             correct_strict = verify(parse(solu_strict), ground_truth)
             if solu_strict is None:
@@ -112,18 +111,14 @@ def save_log(model_name, accs_strict, accs_flex, output_file="reason_test/math50
     invalid_strict = accs_strict.count(None)
     acc0_flex = accs_flex.count(1) / len(accs_flex)
 
-    # 自动创建输出目录
-    import os
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
     # 写入日志文件
     with open(output_file, "a") as f:
         f.write(f"\n=== Model: {model_name} ===\n")
         f.write("math 500 test set\n")
-        f.write("-----strict mode-----\n")
+        f.write("strict mode\n")
         f.write(f"total acc: {acc0_strict:.4f}\n")
         f.write(f"invalid output: {invalid_strict}\n")
-        f.write("----flexible mode----\n")
+        f.write("flexible mode\n")
         f.write(f"total acc: {acc0_flex:.4f}\n")
 
     print(f"✅ Log saved to {output_file}")
@@ -131,17 +126,14 @@ def save_log(model_name, accs_strict, accs_flex, output_file="reason_test/math50
 
 # 复制出问题了，需要改回mathlv3-5的数据集
 if __name__ == '__main__':
-    path0 = f'{root_path}/reasoning'
+    path0 = f'/root/autodl-tmp/reasoning'
     # math = datasets.load_dataset("parquet", 
     #               data_files={'train': path0 + '/gsm8k/train.parquet', 'test': path0 + '/gsm8k/test.parquet'})
     # # print(math['test']['prompt'][0])
     math = datasets.load_dataset(f"{path0}/MATH-500")['test']
-    # llm, sampling_params = load_llm()
-    llm, sampling_params = None, None
+    llm, sampling_params = load_llm()
+    # llm, sampling_params = None, None
     # exit(0)
     accs_strict, accs_flex, answers = test_math(llm, sampling_params, math)
     save_log(model_name, accs_strict, accs_flex)
-    # answers存储
-    with open(f'reason_test/math500-{model_name}-{time_str}.json', 'w') as f:
-        json.dump(answers, f)
 
