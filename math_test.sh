@@ -37,5 +37,8 @@
 # python reason_test/math_dl.py --model_path tictactoe-mix --model_name tictactoe_mix50
 # python reason_test/math_dl.py --model_path nash-tictactoe --model_name nash_tictactoe50
 
-python reason_test/lv3to5_dl.py --model_path nash-tictactoe --model_name nash_tictactoe150
-python reason_test/math_dl.py --model_path nash-tictactoe --model_name nash_tictactoe150
+# python reason_test/lv3to5_dl.py --model_path nash-tictactoe --model_name nash_tictactoe150
+# python reason_test/math_dl.py --model_path nash-tictactoe --model_name nash_tictactoe150
+
+# python reason_test/math_dl.py --model_path tictactoe-mix --model_name tictactoe_mix100
+python reason_test/lv3to5_dl.py --model_path tictactoe-mix --model_name tictactoe_mix100

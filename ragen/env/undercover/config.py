@@ -15,6 +15,7 @@ class UndercoverEnvConfig:
             [{'model_name': 'deepseek'},{'model_name': 'deepseek'},
              {'model_name': 'deepseek'},{'model_name': 'deepseek'},]
     )
+    simplify_prompt: str = "\nSummarize the conversation history of each player in format: `Player x: [summary].\n` Keep the summary ** under 100 words. **"
     temperature: float = 0.5
     seed: int = 123
     max_env_try: int = 3
