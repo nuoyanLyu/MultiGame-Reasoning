@@ -15,7 +15,7 @@ from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
 
-root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
+root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
 test_round = 100
 config = TicTacToeEnvConfig(
     max_env_try=1,  # 修改最大尝试次数

@@ -279,7 +279,6 @@ class MultiGameEnv(ABC):
     Abstract base class for all multi-game environments.
     The class needs to handle text-based input, input may be invalid
         - Environment will track the total reward for the trajectory
-
     """
     def __init__(self):
         pass
@@ -295,7 +294,7 @@ class MultiGameEnv(ABC):
         pass
 
     @abstractmethod
-    def turn(self, trainer_action) -> Tuple[Any, float, bool, Dict]:
+    def step(self, trainer_action) -> Tuple[Any, float, bool, Dict]:
         """
         Execute one step in the environment.
         NOTE should also handle predefined invalid action (0)
@@ -350,17 +349,15 @@ def seed_everything(seed=11):
 
 if __name__ == "__main__":
     # 测试simplifier是否能够正常使用 google/gemini-2.5-flash-lite
-    simpifier = Simplifier('deepseek')
+    simpifier = Simplifier('google/gemini-2.5-flash')
     history = """
-Historical statements by civilians: 
 Player 2: 1. You can use it to make juice or pie.
 Player 4: 1. I think a teacher once gave one to me. 2. It's a very crisp fruit, and it's a good source of fiber.
-Historcal statements by unknown roles:
 Player 1: 1. It's a very common fruit. 2. It's a healthy snack that you can pack for lunch. 3. I'm not going to give any more clues. It's too risky.
 Player 3: 1. It's very sweet and you can peel it. 2. I think it's part of a very popular saying. 3. It's a classic snack, and it's a common color.
 Player 5: 1. It's typically round and can be red or green. 2. You can find it in a lot of different seasons. 3.I'm feeling confident about who the spy is.
 
     """
-    prompt = "\nSummarize the conversation history of each player. Keep the summary ** under 100 words. **"
+    prompt = "\nSummarize the conversation history of each player in format: `Player x: [summary].\n`Keep the summary ** under 100 words. **"
 
     print(simpifier.simplify(history, prompt=prompt))
