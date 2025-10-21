@@ -1,3 +1,4 @@
+from unittest import TextTestRunner
 import numpy as np
 from typing import List, Optional, Tuple, Dict
 import re
@@ -6,40 +7,13 @@ import gymnasium as gym
 import random
 import json
 
-from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed, MultiGameEnv
+from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
 from .config import UndercoverEnvConfig
-
 
 
 system_prompt = "You are an expert in playing the Game Undercover."
 
-INIT_PROMPT = f"""Game Rule: Who's the Undercover Agent
-
-Player Roles:
-- Civilian: UndercoverEnvConfig().player_num - 1 players receive the same keyword.
-- Undercover Agent: 1 player receives a different, but thematically related, keyword.
-
-Objective:
-- Civilian: Identify and vote out the Undercover Agent.
-- Undercover Agent: Avoid being identified and voted out, and cause the civilians to vote out each other.
-
-How to Play:
-- At the beginning of each round, a word is secretly assigned to each player. All civilians receive one word, while the undercover agent receives a different one.
-- Players take turns describing their assigned word using a single sentence. The key is to be subtle, avoiding words that are too obvious to avoid being found out by the undercover agent, but clear enough for fellow civilians to understand.
-- After everyone has spoken, all players vote on who they believe is the undercover agent.
-- The player with the most votes is eliminated from the game.
-
-Note:
-- **The description must exclude the original word.**
-- **The description must be different from others.**
-
-Winning Conditions:
-- Civilian Win: The undercover agent is voted out and eliminated.
-- Undercover Agent Win: The number of remaining players is reduced to two, with the undercover agent still in the game.
-"""
-
-
-class UndercoverGameEnv(MultiGameEnv):
+class UndercoverEnv(MultiGameEnv):
     """
     Undercover Game Environment.
     Maintain game state and process. Call and process trainer and env_player.
@@ -51,7 +25,9 @@ class UndercoverGameEnv(MultiGameEnv):
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
         self.max_env_try = self.config.max_env_try
-        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, temperature=self.config.temperature)
+        self.init_prompts = self.config.init_prompts
+        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
+                                    temperature=self.config.temperature, max_tokens=self.config.env_max_tokens)
         self.train_id = None
         self.current_player_id = None
         # game_state应该是一个列表，存储每个玩家历史发言
@@ -63,432 +39,382 @@ class UndercoverGameEnv(MultiGameEnv):
         self.round = 0  # record game round
         # 存储每个人的词以及对应的身份信息
         self.words = []
-        self.wordlist = json.load(open("ragen/env/undercover/wordshuffle.json"))
+        with open("ragen/env/undercover/wordshuffle.json", "r") as f:
+            self.wordlist = json.load(f)
         self.identities = []
-        self.reset()
+        self.phase = None  # 标志是conversation还是vote轮次
+        self.alive_players = None
+        self.votes = []
+        # 可能需要调用API进行历史对话精简
+        self.simplifier = Simplifier('google/gemini-2.5-flash')
+        self.simplify_prompt = self.config.simplify_prompt
+        self.history = []
+        self.game_over = False
+        self.reset(self.seed)
 
     def reset(self, seed):
         """Initializes the conversation history, choose words and identities"""
         self.seed = seed
         seed_everything(seed)
+        self.history = []
+        self.votes = []
         self.conversation = []
+        self.game_over = False
+        self.current_player_id = 0
         for i in range(self.config.player_num):
-            # 第i个列表就是第i个玩家的发言历史——后续可视化的时候要好好设计一下
+            # 第i个列表就是第i个玩家的发言历史，这样组织更方便后续的simplify过程
+            # 后续需要设置合理的可视化场景
             self.conversation.append([])
         # trainer选择顺序
         self.train_id = random.choice(list(range(self.config.player_num)))
         # 初始化——选择词汇信息
-        word_pair = random.choice(self.wordlist, self.config.player_num)
+        word_pair = random.choice(self.wordlist)
         # 选择undercover的ID信息
         undercover_id = random.choice(list(range(self.config.player_num)))
         # 根据undercoverID记录identity信息以及word信息
         self.words = [word_pair[1]] * self.config.player_num
         # 认为1号是好人词汇、0号是卧底词
         self.words[undercover_id] = word_pair[0]
-        self.identities = ["Agents"] * self.config.player_num
+        self.identities = ["Civilian"] * self.config.player_num
         self.identities[undercover_id] = "Undercover"
+        self.undercover_id = undercover_id
+        self.phase = 'description'
+        # 记录alive players，如果投票出局则从列表中删除
+        # 注意这里记录的index信息都是从0开始，
+        # 只有在render以及投票的时候需要注意下标问题
+        self.alive_players = list(range(self.config.player_num))
         # 如果环境是玩家0先手，环境先下一步
-        if self.train_id != 0:
-            pass
+        while self.current_player_id != self.train_id:
+            prompt_for_env_player = self.render()
+            action = self.env_player.act(prompt_for_env_player, self.current_player_id)
+            self._process_env_action(self.current_player_id, action)
+            self._move_to_next_player()
 
-    def history_render(self) -> str:
-        """"Generate description for history conversation information."""
-        if self.round == 0 and not self.history_info:
-            return "There is no history information."
-        # 可能需要调用API进行精简或删减
-        # 不应该使用循环的方式反复生成，生成后不断叠加、可以反复调用
-        # info_str = ""
-        # for i in range(self.round):
-        #     info_str += f"Round {i + 1}:\n"
-        #     for j in range(self.config.player_num):
-        #         info_str += f"Player {j + 1}: {self.conversation[j][i]}\n"
-        else:
-            # 判断是否超出对话长度，如果过长直接删除
-            if len(self.history_info.split()) > 250:
-                # 调用API进行历史对话的精简
-                pass
-
-
-
-    def render(self) -> str:
-        # 和之前的get_state_prompt相同的作用 生成当前棋局的信息
-        # INIT_prompt，state_prompt以及action_prompt
-        player = f'Player {self.current_player_id + 1}'
-        state_prompt = self._get_state_prompt()
-        actions = self.get_all_actions()
-        prompt0 = f"""You are {player} playing game Undercover.
-
-## Rules
-{INIT_PROMPT}
-
-## History of Conversation
-{state_prompt}
-
-## Your Turn
-You are {player}.
-The available actions are: {actions}.
-"""
-        if self.current_player_id == self.env_id:
-            prompt = prompt0 + f"""Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."""
-        else:
-             prompt = prompt0 
-        return prompt
-
-
-
-
-class UndercoverEnv(BaseLanguageBasedEnv, gym.Env):
-    """
-    A Undercover game environment.
-    Inherits from LLMGameEnv and implements the game-specific logic.
-    """
-    def __init__(self, config=None):
-        BaseLanguageBasedEnv.__init__(self)
-        self.env = UndercoverGameEnv(config)
-
-    def reset(self, seed=None, **kwargs):
-        """Initializes the conversation history, choose words and identities"""
-        self.env.reset(seed)
-
-    def render(self) -> str:
-        # 和之前的get_state_prompt相同的作用 生成当前棋局的信息
-        # INIT_prompt，state_prompt以及action_prompt
-        return self.env.render()
-
-    def step(self, action: str) -> Tuple[str, float, bool, Dict]:
+    def step(self, action: str) -> Tuple[str, bool, bool, Dict]:
         """
-        # This step function is same in all two-player game settings.
-        Execute one step in the environment.
-        NOTE should also handle predefined invalid action (0)
+        Processes the trainer's action and advances the game until it is the
+        trainer's turn again or the game ends.
+
         Args:
-            action: Action to take, must be in action space, or default invalid action
+            action: The action (description or vote) from the trainer.
+
         Returns:
-            observation, reward, done, info
-            observation: updated game prompt;
-            info: dictionary
+            A tuple containing:
+            - prompt: The next prompt for the trainer.
+            - done: Boolean indicating if the game is over.
+            - success: Boolean indicating if the trainer won.
+            - info: A dictionary with auxiliary information.
         """
-        # print(action)
-        # 实际上模型调用的时候会生成format prompt，也会初步提取action信息，这里不需要模板匹配问题
-        action = self._parse_action_trainer(action)
-        available_actions = self.get_all_actions()
-        info = {"action_is_effective": None, "action_is_valid": None, "success": None}
-        train_id = 1 - self.env_id
-        if action not in available_actions:
-            # Handle invalid action - could return an error message, or penalize.
-            error_prompt = f"Invalid action: '{action}'. \nGame over."
-            info['action_is_effective'] = False
-            info['action_is_valid'] = False
-            info['success'] = False
-            return (error_prompt, -1, True, info)
-        
-        # Update state with the valid action
-        self._update_state(action, train_id)
-        # Log the move
+        # 1. Process the trainer's action - check if it is valid
         self.history.append({
-            "player": train_id,
-            "action": action
-        })
-
-        # Check if the game is over
-        win = self._check_win()
-        reward = None
-        if win:
-            # self.winner = self._get_winner()
-            # if self.winner == self.players[self.current_player_index]:
-            reward = 1 # Simple reward: 1 for winning, 0 for draw/loss
-            done = True
-            success_prompt = 'Congratulations! You are the winner!'
-            info['action_is_effective'] = True
-            info['action_is_valid'] = True
-            info['success'] = True
-            self.reset()
-            return success_prompt, reward, done, info
-        # 判断是否为平局
-        if len(self.get_all_actions()) == 0:
-            reward = 0
-            done = True
-            draw_prompt = 'Draw! No winner.'
-            info['action_is_effective'] = True
-            info['action_is_valid'] = True
-            info['success'] = False
-            self.reset()
-            return draw_prompt, reward, done, info
+                "action": action,
+            })
+        is_valid = self._process_action(self.train_id, action)
+        if not is_valid:
+            info = {'action_is_effective': False, 'action_is_valid': False, 'success': False}
+            prompt = 'Invalid action. Please try again. ' + self.render()
+            return (prompt, -0.1, False, info)
         
-        # Switch to the next player if the game is not over
-        # 环境agent采取行动
-        self.current_player_id = self.env_id
-        env_prompt = self.render()
-        valid = False
-        try_count = 0
-        while not valid and try_count < self.max_env_try:
-            env_output = self.env_player.act(env_prompt, 0)
-            # 同样处理action、更新环境的流程
-            # 看一下deepseek输出的是什么东西？是否长篇大论
-            # print(env_output)
-            # 降低env_output的匹配精确度，环境agent并不需要精确匹配
-            action = self._parse_action_env(env_output, strict=False)
-            # print(action)
-            available_actions = self.get_all_actions()
-            # 如果错了环境agent可以多次调用，直到生成合理的solution
-            if action in available_actions:
-                valid = True
-            try_count += 1  
-        if not valid:
-            # TODO:对手失误，算作agent胜利 OR 平局？感觉都不太合理，给一个中间的奖励？
-            # 尽量不要出现这个情况，理论上应该是一直等到环境agent有动作才好——
-            # 甚至应该随机选一个作为动作才更加合理
+        self._move_to_next_player()
+        self._check_and_transition_phase()
+
+        # 2. Run game loop for env_players until it's trainer's turn again or game ends
+        # 还有一种可能性——Trainer自己被票走了，加上这个判定
+        while self.current_player_id != self.train_id and not self.game_over and self.train_id in self.alive_players:
+            # 确定游戏阶段
+            if self.game_over or self.train_id not in self.alive_players: 
+                # trainer死了或者游戏已经结束，break
+                break
+            prompt_for_env_player = self.render()
+            env_id = self.current_player_id
+            if env_id > self.train_id:
+                env_id -= 1
+            valid = False
+            for i in range(self.max_env_try):
+                env_action = self.env_player.act(prompt_for_env_player, env_id)
+                valid = self._process_env_action(self.current_player_id, env_action)
+                if valid:
+                    # 如果有效，不用重复提问
+                    break
+            # 如果始终没有有效动作——env_invalid_output，这一局提前结束
+            if not valid:
+                print('env invalid output!')
+                info = {'action_is_effective': False, 'action_is_valid': True, 'success': False}
+                self.history.append({
+                    "action": action,
+                })
+                prompt = 'Invalid env output. End. '
+                return (prompt, 0.5, True, info)
+            self._move_to_next_player() # 这一轮结束，确定下一个玩家ID信息，相当于下标+1
+            self._check_and_transition_phase() # check游戏阶段
+
+        # 3. 判断是否结束，得到这轮的output信息
+        if self.game_over:
+            trainer_identity = self.identities[self.train_id]
+            success = (self.winner == trainer_identity)
+            reward = int(success)
+            info = {'action_is_effective': False, 'action_is_valid': True, 'success': success}
+            done = True
+            prompt = self.render()
+        elif self.train_id not in self.alive_players:
+            # trainer死了，游戏结束
+            prompt = 'You are eliminated. Game over.'
+            done = True
+            reward = 0.5
+            info = {'action_is_effective': False, 'action_is_valid': True, 'success': False}
+        else:
+            # 正常进行下一轮
+            prompt = self.render()
+            done = False
             reward = 0
-            done = True
-            draw_prompt = 'Your opponent made a mistake! No winner.'
-            info['action_is_effective'] = False
-            info['action_is_valid'] = True
-            # 不算成功吧，要不然会混淆模型训练结果
-            info['success'] = False
-            self.reset()
-            return draw_prompt, reward, done, info
-        # 对手正确，更新环境
-        # Update state with the valid action
-        self._update_state(action, self.env_id)
-        # Log the move
-        self.history.append({
-            "player": self.env_id,
-            "action": action
-        })
-        # 判定是否胜利，注意对手胜利是trainer失败，需要转换过来
-        # Check if the game is over
-        env_win = self._check_win()
-        reward = None
-        if env_win:
-            # self.winner = self._get_winner()
-            # if self.winner == self.players[self.current_player_index]:
-            reward = -1 # Simple reward: 1 for winning, 0 for draw/loss
-            done = True
-            fail_prompt = 'Failed! The opponent wins! Game over. Final state: \n' + self._get_state_prompt()
-            info['action_is_effective'] = True
-            info['action_is_valid'] = True
-            info['success'] = False
-            self.reset()
-            return fail_prompt, reward, done, info
-        # 判断是否为平局
-        if len(self.get_all_actions()) == 0:
-            reward = 0
-            done = True
-            draw_prompt = 'Draw! No winner.\n' + self._get_state_prompt()
-            info['action_is_effective'] = True
-            info['action_is_valid'] = True
-            info['success'] = False
-            self.reset()
-            return draw_prompt, reward, done, info
+            info = {'action_is_effective': False, 'action_is_valid': True, 'success': False}
         
-        # 没有失败、没有平局——调用train agent进入下一步
-        self.current_player_id = 1 - self.env_id
-        train_prompt = self.render()
-        reward = 0
-        done = False
-        info['action_is_effective'] = True
-        info['action_is_valid'] = True
-        info['success'] = False
-        return train_prompt, reward, done, info
+        return prompt, reward, done, info
 
-    # 需要说明一下这里的四子棋的条件horizontal、vertical、diagonal具体的例子
-    def _get_state_prompt(self) -> str:
-        """Converts the numpy array into a human-readable board string with row and column numbers."""
-        # Header for columns
-        header = "   " + " ".join(str(i+1) for i in range(self.cols))  # 前面加3个空格对齐
-        # 每行加行号，行号从1开始
-        board_str = "\n".join(
-            f"{r+1} |" + " ".join(self._get_piece_char(p) for p in row) + "|"
-            for r, row in enumerate(self.game_state)
-        )
-        return f"Board State:\n{header}\n{board_str}\n"
+    def render(self) -> str:
+        """
+        Generates the prompt for the current player based on the game state.
+        Need to check the game phase, discuss or vote.
+        Returns:
+            A formatted string containing all necessary information for the player to act.
+        """
+        player_id = self.current_player_id
+        # choose init prompt randomly
+        init_prompt = random.choice(self.init_prompts)
 
-    def _get_piece_char(self, piece_val: int) -> str:
-        if piece_val == 1: return "O" # Player 1
-        if piece_val == 2: return "X" # Player 2
-        return "." # Empty 可能空格也可以？——先用点占位置，看着感觉还行
+        # --- History Information ---
+        history_str = self._history_render()
 
-    def get_all_actions(self) -> List[str]:
-        """A column is available if its top cell (row 0) is empty."""
-        actions0 = []
-        for i in range(self.rows):
-            for j in range(self.cols):
-                if self.game_state[i, j] == 0:
-                    actions0.append((i + 1, j + 1))
-        return actions0
-
-    def _parse_action_trainer(self, action: str) -> Optional[Tuple]:
-        """Helper to extract action from trainer's raw output."""
-        pattern = r"\(\s*(\d+)\s*,\s*(\d+)\s*\)"
-        match = re.search(pattern, action)
-        if match:
-            row = int(match.group(1))
-            col = int(match.group(2))
-            # print("匹配成功:", row, col)
-            action = (row, col)
-        else:
-            # print("匹配失败")
-            action = None
-        return action
-    
-    def _parse_action_env(self, llm_output: str, strict=False) -> Optional[Tuple]:
-        """Helper to extract action from env's raw output."""
-        pattern = r"<answer>\(\s*(\d+)\s*,\s*(\d+)\s*\)</answer>"
-        match = re.search(pattern, llm_output)
-        if match:
-            row = int(match.group(1))
-            col = int(match.group(2))
-            # print("匹配成功:", row, col)
-            action = (row, col)
-        else:
-            # 环境player并不需要非常精确的匹配、指令遵循等信息
-            if not strict:
-                pattern = r"\(\s*(\d+)\s*,\s*(\d+)\s*\)"
-                match = re.search(pattern, llm_output)
-                if match:
-                    row = int(match.group(1))
-                    col = int(match.group(2))
-                    # print("匹配成功:", row, col)
-                    action = (row, col)
-                else:
-                    action = None
+        # --- Turn-specific Prompt ---
+        turn_prompt = f"## Your Turn\n"
+        turn_prompt += f"You are Player {player_id + 1}.\n"
+        turn_prompt += f"Your identity is: **{self.identities[player_id]}**.\n"
+        turn_prompt += f"Your secret word is: **{self.words[player_id]}**.\n\n"
+        # 添加不同身份游戏策略提示
+        if self.phase == 'description':
+            turn_prompt += "Description Phase. \n"
+            if self.identities[player_id] == 'Civilian':
+                turn_prompt += "Your description must be accurate. But more importantly, it should help you find other civilians and identify the undercover. \nRemember: Your goal is to win, not just describe.\n"
             else:
-                action = None
-        return action
-    
-    def _update_state(self, action: str, player_id):
-        # 默认这里放下的棋子是合法的——下棋获得action的时候需要判定是否合法——yes
-        """Drops a piece into the specified column."""
-        # col = int(action) - 1
-        row, col = action[0] - 1, action[1] - 1
-        player_piece = player_id + 1
-        self.game_state[row, col] = player_piece
-        self.last_move = (row, col)
-        # Find the lowest empty row in that column
-        # for r in range(self.rows - 1, -1, -1):
-        #     if self.game_state[r, col] == 0:
-        #         self.game_state[r, col] = player_piece
-        #         self.last_move = (r, col)
-        #         return
-    
-    def _is_over(self) -> bool:
-        """Game is over if there's a winner or the board is full (draw)."""
-        if self.last_move is None:
-            return False
-        # A win is only possible if a move has been made
-        if self._check_win():
-            return True
-        # Check for draw (no empty cells left)
-        if len(self.get_all_actions()) == 0:
-            return True
-        return False
-
-    def _get_winner(self) -> Optional[str]:
-        """Returns the current player if they just won, otherwise checks for a draw."""
-        if self._check_win():
-            return self.players[self.current_player_index]
-        return None # None indicates a draw or game not over
-
-    def _check_win(self) -> bool:
-        """Checks for a 4-in-a-row from the last move position."""
-        if self.last_move is None:
-            return False
-            
-        r, c = self.last_move
-        player = self.game_state[r, c]
-        if player == 0:
-            return False
-
-        # Check all four directions (horizontal, vertical, two diagonals)
-        for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
-            count = 1
-            # Check in one direction
-            for i in range(1, self.win_condition):
-                nr, nc = r + i * dr, c + i * dc
-                if 0 <= nr < self.rows and 0 <= nc < self.cols and self.game_state[nr, nc] == player:
-                    count += 1
-                else:
-                    break
-            # Check in the opposite direction
-            for i in range(1, self.win_condition):
-                nr, nc = r - i * dr, c - i * dc
-                if 0 <= nr < self.rows and 0 <= nc < self.cols and self.game_state[nr, nc] == player:
-                    count += 1
-                else:
-                    break
-            # 两侧统计连线数量是否超过WIN条件
-            if count >= self.win_condition:
-                return True
-        return False
-
-    def _parse_and_update_game_state(self, state_string: str) -> Dict[int, int]:
-        """
-        Parses a TicTacToe board string, updates the numpy game_state,
-        and counts the pieces for each player.
-        """
-        # Define the character-to-piece-value mapping
-        char_map = {'O': 1, 'X': 2, '.': 0}
-        piece_counts = {1: 0, 2: 0}
+                turn_prompt += "Your description must be plausible but vague. **Do NOT describe your word perfectly**. Try to guess the civilians' word and describe a feature that both words share. Mimic the descriptions of others to blend in. \nRemember: Your goal is to survive, not be accurate.\n"
+            turn_prompt += "Describe your word in a single sentence.\n"
+        elif self.phase == 'vote':
+            if self.identities[player_id] == 'Civilian': 
+                turn_prompt += "Vote Phase. Vote for the undercover agent. Listen for descriptions that are too vague, too specific, or contradictory. "
+            else:
+                turn_prompt += "Vote Phase. Vote strategically to deflect suspicion from yourself. Choose a civilian who seems suspicious based on their descriptions, while blending in with the group's reasoning."
+            turn_prompt += "Available players to vote for are:\n"
+            # 默认不会投给自己
+            vote_options = [p for p in self.alive_players if p != player_id]
+            for p_id in vote_options:
+                turn_prompt += f"Player {p_id + 1}, "
+            turn_prompt += f"\nPlease state your vote clearly: I vote for Player [Player ID]."
         
-        # state_string定位初始位置 直接全局匹配会匹配到之前的终局字符串信息
-        board_str0 = state_string.split('Board State:')[1]
-        # Use regex to find all board rows, which start with '|' and end with '|\n'
-        # 这里是否能够添加换行符？不确定
-        board_rows_str = re.findall(r'\|(.*?)\|\n', board_str0)
-        
-        if len(board_rows_str) != self.rows:
-            raise ValueError(f"Invalid board string. Expected {self.rows} rows, but found {len(board_rows_str)}.")
-            
-        # Re-initialize the game state to ensure it's clean
-        self.game_state = np.zeros((self.rows, self.cols), dtype=int)
-        
-        for r_idx, row_str in enumerate(board_rows_str):
-            # Split the row content by spaces, ignoring extra whitespace
-            pieces = row_str.strip().split(' ')
-            if len(pieces) != self.cols:
-                raise ValueError(f"Invalid row format on row {r_idx}. Expected {self.cols} columns.")
-                
-            for c_idx, piece_char in enumerate(pieces):
-                if piece_char in char_map:
-                    piece_value = char_map[piece_char]
-                    self.game_state[r_idx, c_idx] = piece_value
-                    if piece_value in piece_counts:
-                        piece_counts[piece_value] += 1
-                else:
-                    raise ValueError(f"Unknown piece character '{piece_char}' at row {r_idx}, col {c_idx}.")
+        prompt = f"""
+{init_prompt}
 
-        return piece_counts
+## History Conversation
+{history_str}
 
-    def _load_current_player(self, state_info):
-        """_summary_
-        根据state信息更新current_player_index属性
-        Args:
-            state_info (_type_): _description_
-        """
-        p1_pieces = piece_counts.get(1, 0)
-        p2_pieces = piece_counts.get(2, 0)
-        
-        if p1_pieces <= p2_pieces:
-            self.current_player_index = 0  # Player 1's turn
+{turn_prompt}
+"""
+        if self.current_player_id != self.train_id:
+            prompt += "Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."
+        return prompt.strip()
+
+    def _move_to_next_player(self):
+        """Cycles to the next alive player. 
+        Only change `self.current_player_id`"""
+        assert self.current_player_id in self.alive_players
+        print(self.current_player_id)
+        if self.current_player_id == self.alive_players[-1]:
+            # 但如果是这样意味着一轮已经结束——是否需要设置一个结束的标志？
+            self.current_player_id = self.alive_players[0]
         else:
-            self.current_player_index = 1  # Player 2's turn
+            # 找到下一个需要访问的Player对应ID信息
+            id = self.alive_players.index(self.current_player_id)
+            self.current_player_id = self.alive_players[id + 1]
+        print(self.current_player_id)
 
-    def close():
-        return None
+    def _process_action(self, player_id: int, action: str) -> bool:
+        """
+        Updates game state based on a player's action.
+        if action is valid, return True; else return False
+        """
+        # For simplicity, assume `action` is the direct answer.
+        if self.phase == 'description':
+            # 保存历史信息
+            # 不能没有消息，判定一下action不能为空
+            if not action.strip():
+                return False
+            self.conversation[player_id].append(action.strip())
+            return True
+        elif self.phase == 'vote':
+            match = re.search(r'player (\d+)', action.lower())
+            if match:
+                voted_player_num = int(match.group(1))
+                # -1，和真实的index相对应
+                voted_id = voted_player_num - 1
+                if voted_id in self.alive_players and voted_id != player_id:
+                    self.votes.append(voted_id)
+                    return True
+            return False
+
+    def _process_env_action(self, player_id: int, action: str) -> bool:
+        """
+        Updates game state based on the env_player's action.
+        If action is valid, return True; else return False.
+        
+        """
+        # For simplicity, assume `action` is the direct answer.
+        pattern = r"<answer>(.*)</answer>"
+        match = re.search(pattern, action)
+        if match is None:
+            return False
+        action = match.group(1).strip()
+        print(f'extract action: {action}')
+        if self.phase == 'description':
+            self.conversation[player_id].append(action.strip())
+            return True
+        elif self.phase == 'vote':
+            # 投票需要输出玩家ID信息
+            match = re.search(r'player (\d+)', action.lower())
+            if match:
+                voted_player_num = int(match.group(1))
+                # -1，和真实的index相对应
+                voted_id = voted_player_num - 1
+                if voted_id in self.alive_players and voted_id != player_id:
+                    self.votes.append(voted_id)
+                    return True
+            return False
+
+    def _check_and_transition_phase(self):
+        """Checks if a phase is over and transitions to the next if needed."""
+        # 在current_player_id更新后调用——所以只需要确定模型是否完成description或者vote过程
+        if self.phase == 'description' and self.current_player_id == self.alive_players[0]:
+            self.phase = 'vote'
+            print('change phase to vote')
+            # 不再需要进行ID的更新
+            # self.current_player_id = self.alive_players[0] # Start voting from the first alive player
+        elif self.phase == 'vote' and self.current_player_id == self.alive_players[0]:
+            self._tally_votes_and_eliminate()
+            self._check_game_over()
+            if not self.game_over:
+                self._start_new_round()
+
+    def _tally_votes_and_eliminate(self):
+        """Counts votes, eliminates a player, and records it."""
+        if len(self.votes) == 0: 
+            print('wrong process! DEBUG!!!')
+            exit(1)
+        print('vote info:', self.votes)
+        vote_counts = {p_id: 0 for p_id in self.alive_players}
+        for voted_id in self.votes:
+            if voted_id in vote_counts:
+                vote_counts[voted_id] += 1
+            else:
+                # vote has been checked in `process_action` function
+                print('error! vote not valid! DEBUG!')
+                exit(1)
+        
+        print('vote counts:', vote_counts)
+        max_votes = max([k for k in vote_counts.values()])
+        eliminated_candidates = [e for e in vote_counts.keys() 
+                                    if vote_counts[e] == max_votes]
+        print('eliminated candidates:', eliminated_candidates)
+        # Handle ties by randomly choosing one to eliminate
+        eliminated_id = random.choice(eliminated_candidates)
+        print('eliminated id:', eliminated_id)
+        self.alive_players.remove(eliminated_id)
+        # eliminated_identity = self.identities[eliminated_id]
+        # 返回被票出的人的身份 —— not used
+        # return eliminated_identity
+
+    def _check_game_over(self):
+        """Checks for win/loss conditions and sets game_over flag."""
+        # undercover_alive = any(self.identities[p_id] == "Undercover" for p_id in self.alive_players)
+        undercover_alive = (self.undercover_id in self.alive_players)
+        if not undercover_alive:
+            self.game_over = True
+            self.winner = "Civilian"
+            print('Game ends. Civilian win.')
+        elif len(self.alive_players) <= 3:
+            # 两轮投票卧底都没有出局，卧底胜利
+            self.game_over = True
+            self.winner = "Undercover"
+            print('Game ends. Undercover win.')
+        else:
+            self.game_over = False
+            self.winner = None
+            print('Not end. Continue.')
+
+    def _start_new_round(self):
+        """Resets state for a new round of descriptions and votes."""
+        # self.round_num += 1
+        # start from description phase
+        self.phase = 'description'
+        print('change phase to description and delete votes history')
+        self.votes = []
+        # The starting player for the new round is the first one in the alive list
+        # self.current_player_id = self.alive_players[0]
+        # Do not need to change player_id -- handle in `_check_and_transition_phase``
+
+    def _history_render(self) -> str:
+        """"Generate description for history conversation information."""
+        # 第一轮第一个发言玩家没有历史信息
+        if self.round == 0 and self.current_player_id == 0 and self.phase == 'description':
+            return "There is no history information."
+        info_str = ""
+        # 按照Player整理历史发言信息
+        # 打印所有历史发言or alive_player的发言？先设置为所有玩家
+        for i in range(self.config.player_num):
+        # for i in self.alive_players:
+            if len(self.conversation[i]) == 0:
+                # 如果没有发言历史，跳过
+                continue
+            info_str += f"Player {i + 1}: "
+            for j in self.conversation[i]:
+                info_str += j + ' '
+            info_str += '\n'
+        # 判断是否超出对话长度，如果过长直接删除
+        if len(info_str.split()) > 300:
+            print('simplify info')
+            print(info_str)
+            # 调用API进行历史对话的精简，并缩写历史记录中的玩家发言信息
+            info_str = self.simplifier.simplify(info_str, prompt=self.simplify_prompt)
+            # 拆分输出结果，重新保存为conversation信息
+            # 使用正则匹配所有玩家及其描述
+            pattern = r"[Pp]layer\s+(\d+):\s*(.+)"
+            matches = re.findall(pattern, info_str)
+            for num, info in matches:
+                self.conversation[int(num) - 1] = [info.strip()]
+            print(self.conversation)
+            # TODO：担心调用API会有错误输出，不知道这么搞会不会容易出BUG——记得测试！
+        return info_str
+    
+    def close(self):
+        """Close the environment."""
+        del self.wordlist
+        
 
 
 if __name__ == "__main__":
     # import matplotlib.pyplot as plt
-    config = TicTacToeEnvConfig()
-    env = TicTacToeEnv(config)
+    config = UndercoverEnvConfig()
+    env = UndercoverEnv(config)
     # print(env.reset(seed=42))
-    done = False
-    while not done:
-        print(env.render())
-        keyboard = input("Enter action: ")
-        if keyboard == 'q':
-            break
-        # action = int(keyboard)
-        # assert action in env.ACTION_LOOKUP, f"Invalid action: {action}"
-        obs, reward, done, info = env.step(keyboard)
-        for o in [reward, done, info]:
-            print(o)
+    r = 1
+    while r:
+        env.reset(seed=random.randint(0, 1000))
+        done = False
+        while not done:
+            print(env.render())
+            keyboard = input("Enter action: ")
+            if keyboard == 'q':
+                r = 0
+                break
+            # action = int(keyboard)
+            # assert action in env.ACTION_LOOKUP, f"Invalid action: {action}"
+            obs, reward, done, info = env.step(keyboard)
+            for o in [reward, done, info]:
+                print(o)

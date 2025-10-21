@@ -1,0 +1,30 @@
+defaults:
+  - base
+
+trainer:
+  experiment_name: Nash16-Mix
+  save_freq: 50
+
+actor_rollout_ref:
+  rollout:
+    max_model_len: 8000
+
+es_manager:  # 数值沿用原始设定，并没有缩小规模
+  format_penalty: -0.1
+  train:
+    env_groups: 32 # 12 + 4
+    # under the same group, the env config and env seed are ensured to be equal
+    group_size: 32  # 16
+    env_configs:
+      tags: ["Nash", "MixTrain"]
+      n_groups: [16, 16] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+  val:
+    env_groups: 32 # 256 -> 32
+    group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
+    env_configs:
+      tags: ["Nash", "MixTest"]
+      n_groups: [16, 16] # [256] -> [32] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+
+# single-turn settings
+agent_proxy:
+  max_turn: 1

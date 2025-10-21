@@ -195,7 +195,7 @@ class BaseEnvConfig(ABC):
 class EnvPlayer():
     """在双人或多人玩家场景下初始化环境中的其他玩家"""
 
-    def __init__(self, num_players, player_info, system_prompt='', temperature=0.5, model_path='/root/autodl-tmp') -> None:
+    def __init__(self, num_players, player_info, system_prompt='', temperature=0.5, model_path='/root/autodl-tmp', max_tokens=200) -> None:
         self.system_prompt = system_prompt
         self.temperature = temperature
         self.num_players = num_players
@@ -203,6 +203,7 @@ class EnvPlayer():
         # print(player_info[0]['model_name'], player_info[0]['port'])
         # 存储玩家信息，不直接初始化带key的client
         self.players = []
+        self.max_tokens = max_tokens
         for i in range(self.num_players - 1):
             model_name = player_info[i]['model_name']
             if model_name == 'deepseek':
@@ -269,7 +270,7 @@ class EnvPlayer():
             model=model,
             messages=message0,
             temperature=self.temperature,
-            max_tokens=200,
+            max_tokens=self.max_tokens, # max_tokens最好进行指定
         )
         return response.choices[0].message.content
 
@@ -295,7 +296,7 @@ class MultiGameEnv(ABC):
         pass
 
     @abstractmethod
-    def turn(self, trainer_action) -> Tuple[Any, float, bool, Dict]:
+    def step(self, trainer_action: str) -> Tuple[Any, float, bool, Dict]:        
         """
         Execute one step in the environment.
         NOTE should also handle predefined invalid action (0)
@@ -306,11 +307,15 @@ class MultiGameEnv(ABC):
             observation (rendered environment), reward, done, info
         """
         pass
-
-    # below are optional methods
-
-    def render(self) -> Any:
+    
+    @abstractmethod
+    def render(self) -> str:
         """Render the environment. Optional method."""
+        pass
+
+    @abstractmethod
+    def close(self):
+        """Close the environment."""
         pass
 
     def compute_reward(self, action, **kwargs) -> float:
@@ -330,11 +335,6 @@ class MultiGameEnv(ABC):
         Args:
             action: valid agents action information.
         """
-        pass
-
-
-    def close(self):
-        """Close the environment."""
         pass
 
 
@@ -361,6 +361,6 @@ Player 3: 1. It's very sweet and you can peel it. 2. I think it's part of a very
 Player 5: 1. It's typically round and can be red or green. 2. You can find it in a lot of different seasons. 3.I'm feeling confident about who the spy is.
 
     """
-    prompt = "\nSummarize the conversation history of each player. Keep the summary ** under 100 words. **"
+    prompt = "\nSummarize the conversation history of each player in format: `Player x: [conversation]\n`. Keep the summary ** under 100 words. **"
 
     print(simpifier.simplify(history, prompt=prompt))
