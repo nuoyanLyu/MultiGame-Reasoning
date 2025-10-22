@@ -38,7 +38,7 @@ Be subtle yet clear. After all speak, everyone votes out one player. The one wit
 
 Win:
 - Civilians win if the undercover is voted out.
-- Undercover wins if only Undercover and one Civilian remain.""",
+- Undercover wins if only Undercover and two Civilians remain.""",
 
     # 版本2：侧重玩法逻辑版
     """Who's the Undercover Agent
@@ -55,7 +55,7 @@ The player with most votes leaves the game.
 
 Win:
 - Civilians: Eliminate the undercover.
-- Undercover: Survive until 2 players remain.""",
+- Undercover: Survive until 3 players remain.""",
 
     # 版本3：更口语化叙述版
     """Who's the Undercover
@@ -68,7 +68,7 @@ Whoever gets the most votes is out.
 
 Victory:
 - Civilians win if they kick out the undercover.
-- Undercover wins if they survive till the last two players.""",
+- Undercover wins if they survive till the last three players.""",
 
     # 版本4：强调策略与规则要点版
     """Game Title: Who's the Undercover
@@ -86,7 +86,7 @@ Highest votes = eliminated.
 
 End:
 - Civilians win if undercover is voted out.
-- Undercover wins if they reach the final two.""",
+- Undercover wins if they reach the final three.""",
 ]
 
     )
