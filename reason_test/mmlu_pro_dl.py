@@ -121,7 +121,7 @@ def test_mmlu(llm, sampling_params, mmlu):
 def save_results_to_markdown(acc, model_name, output_file='reason_test/mmlu-pro-results.txt'):
     acc_list = []
     rows = []
-    print('mmlu, model', model_name)
+    print('mmlu pro, model', model_name)
     # 计算每个 key 的准确率和 invalid 率
     for k in acc.keys():
         total = len(acc[k])
