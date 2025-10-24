@@ -10,7 +10,7 @@ from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
 
-root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
+root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 batch_size = 16
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_path", type=str, default="tictactoe")
@@ -103,6 +103,25 @@ def test_math(llm, sampling_params, math):
                 accs_flex.append(0)
     return accs_strict, accs_flex, answers
 
+
+def save_log(model_name, accs_strict, accs_flex, output_file="reason_test/gsm8k-log.txt"):
+    acc0_strict = accs_strict.count(1) / len(accs_strict)
+    invalid_strict = accs_strict.count(None)
+    acc0_flex = accs_flex.count(1) / len(accs_flex)
+
+    # 写入日志文件
+    with open(output_file, "a") as f:
+        f.write(f"\n=== Model: {model_name} ===\n")
+        f.write("gsm8k test set\n")
+        f.write("strict mode\n")
+        f.write(f"total acc: {acc0_strict:.4f}\n")
+        f.write(f"invalid output: {invalid_strict}\n")
+        f.write("flexible mode\n")
+        f.write(f"total acc: {acc0_flex:.4f}\n")
+
+    print(f"✅ Log saved to {output_file}")
+
+
 if __name__ == '__main__':
     os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
     os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
@@ -124,6 +143,8 @@ if __name__ == '__main__':
     print('----flexible mode----')
     acc0 = accs_flex.count(1) / len(accs_flex)
     print('total acc:', format(acc0, '.4f'))
+    # 写入日志文件
+    save_log(model_name, accs_strict, accs_flex)
     # answers存储
-    with open(f'reason_test/gsm8k-{model_name}-{time_str}.json', 'w') as f:
-        json.dump(answers, f)
+    # with open(f'reason_test/gsm8k-{model_name}-{time_str}.json', 'w') as f:
+    #     json.dump(answers, f)

@@ -25,15 +25,15 @@ args = parser.parse_args()
 
 model_path = args.model_path
 model_name = args.model_name
-# tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
-tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
+tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
+# tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
 
 def load_llm():
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
     # tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-    # model = f'{root_path}/{model_path}/{model_name}'
-    model = f"{root_path}/{model_name}"
+    model = f'{root_path}/{model_path}/{model_name}'
+    # model = f"{root_path}/{model_name}"
     # ro_config = config.actor_rollout_ref.rollout
     llm = LLM(
 		model,
