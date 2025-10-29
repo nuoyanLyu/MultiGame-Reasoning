@@ -34,6 +34,7 @@ REGISTERED_ENVS = {
     'math_lv3to5': MathEnv,
     'mix_data': MixEnv,
     'nashenv': NashEnv,
+    'nash_mix': NashMixEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -48,6 +49,7 @@ REGISTERED_ENV_CONFIGS = {
     'math_lv3to5': MathEnvConfig,
     'mix_data': MixEnvConfig,
     'nashenv': NashEnvConfig,
+    'nash_mix': NashMixEnvConfig,
 }
 
 try:
