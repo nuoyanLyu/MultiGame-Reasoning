@@ -1,30 +1,44 @@
-# nashenv/env.py
-from __future__ import annotations
-from typing import Dict, Any, Tuple, List, Optional
 import numpy as np
-import nashpy as nash  
-import random
+from typing import List, Optional, Tuple, Dict
+import re
+from math_verify import parse, verify
+
+from openai import NotFoundError
+
+from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed
+from .config import NashMixEnvConfig
 import gymnasium as gym
-from .config import NashEnvConfig
-from ragen.env.base import BaseLanguageBasedEnv, seed_everything, timed
+import datasets
+import random
+import os
+import nashpy as nash  
 
-
-class NashEnv(BaseLanguageBasedEnv, gym.Env):
+class NashMixEnv(BaseLanguageBasedEnv, gym.Env):
     """
-    完全信息 2x2 矩阵博弈环境（接口与 bandit 对齐）
-      - reset(seed) -> str
-      - step(action) -> (str, reward, done, info)
-      - render() -> str
+    A Math game environment.
+    Inherits from LLMGameEnv and implements the game-specific logic.
     """
-    metadata = {"render.modes": ["human"]}
-
-    def __init__(self, config: Optional[NashEnvConfig] = None):
-        BaseLanguageBasedEnv.__init__(self) 
-        self.config = config or NashEnvConfig()
+    def __init__(self, config=None):
+        BaseLanguageBasedEnv.__init__(self)
+        self.config = config if config is not None else NashMixEnvConfig()
+        # self.ACTION_SPACE = gym.spaces.discrete.Discrete(2, start=self.config.action_space_start)
         self.render_cache = None
         self.seed = int(self.config.seed)
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
+        data_path = self.config.data_path
+        data_files = self.config.data_files
+        self.data_path = f"{data_path}/reasoning/{data_files}"
+        # NOTE：这么多数据集能否支持同时load多个环境的设置？
+        # 如果不行可能需要每一次加载环境的时候需要通过stream的方式读取数据
+        self.mode = self.config.mode
+        self.data_train =  datasets.load_dataset("parquet", 
+            data_files=f"{self.data_path}/{self.mode}.parquet")['train']
+        self.question0 = None
+        self.history = []
+        # 记录进行到第几阶段，先做完nash再做mix数据
+        self.phase = None
+        # 初始化纳什均衡的setting
         self.np_random: Optional[np.random.RandomState] = None
 
         # payoff matrices
@@ -39,10 +53,21 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
         self.valid_actions: List[str] = ['1', '2']
         self.templates = self._build_templates()
         self.history = []
-
         self.reset(self.seed)
 
-    def reset(self, seed: Optional[int] = None, **kwargs) -> str:
+    def reset(self, seed=None, **kwargs):
+        """Initializes the environment for a new question"""
+        self.seed = seed
+        seed_everything(seed)
+        # 根据随机数种子初始化抽取一个问题——reset mix
+        self.question0 = random.choice(self.data_train)
+        # 随机，先nash或先mix
+        self.phase = [random.choice(['nash', 'mix'])]
+        # reset_nash
+        self.reset_nash(seed)
+        return self.render()
+
+    def reset_nash(self, seed=None):
         if seed is not None:
             self.np_random = np.random.RandomState(seed)
             seed_everything(seed)
@@ -61,12 +86,68 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
             self.role = self.config.force_role
         else:
             self.role = "P1" if int(self.np_random.randint(0, 2)) == 0 else "P2"
-        self.last_prompt = self._render_prompt()
+        self.last_prompt = self._render_nash_prompt()
         return self.last_prompt
 
-    def step(self, action: str) -> Tuple[str, int, bool, Dict[str, Any]]:
-        """根据 nashpy计算NE给reward"""
+    def render(self) -> str:
+        assert self.question0 is not None, "question0 is None, please reset the environment first"
+        if self.phase[-1] == 'mix':
+            prompt = self.question0['question']
+        else:
+            prompt = self._render_nash_prompt()
+        return prompt
+
+    # def render_for_test(self) -> str:
+    #     prompt = self.question0['question']
+    #     prompt += f'\nAnswer is: {self.question0["answer"]}'
+    #     return prompt
+
+    def _extract_choice(self, text: str):
+        """
+        从文本中提取第一个A-D字母（句首答案），允许格式：
+        - A
+        - A.
+        - A.hello
+        - A something
+        不匹配：
+        - ADHD, BADGE 等单词中嵌入的情况
+        """
+        text = text.strip()
+        match = re.search(r'(?<![A-Za-z])([A-D])(\.|(?:\s|$))', text)
+        if match:
+            return match.group(1).upper()
+        return None
+
+    def step(self, action: str) -> Tuple[str, float, bool, Dict]:
+        # 根据phase阶段判断是nash OR mix环境，返回最终结果OR进入下一步
         self.history.append(action)
+        if self.phase[-1] == 'mix':
+            prompt, reward, done, info = self.step_mix(action)
+        else:
+            prompt, reward, done, info = self.step_nash(action)
+        # 如果是task2：直接返回结果
+        if len(self.phase) == 2:
+            return prompt, reward, done, info
+        # 如果是task1、不正确，提前终止
+        if len(self.phase) == 1 and reward == 0:
+            return prompt, reward, done, info
+        # task1且正确，进入task2
+        if self.phase[-1] == 'mix':
+            self.phase.append('nash')
+        else:
+            self.phase.append('mix')
+        prompt = self.render()
+        reward = 0 # 这个地方其实后续可以引入step_reward之类的东西
+        done = False
+        info = dict(
+                action_is_valid=True,
+                action_is_effective=True,
+                success=True,
+            )
+        return prompt, reward, done, info
+
+    def step_nash(self, action: str) -> Tuple[str, float, bool, Dict]:
+        """根据 nashpy计算NE给reward"""
         is_valid = action in self.valid_actions
         # print(type(action), self.valid_actions)
         if not is_valid:
@@ -76,7 +157,7 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
                 success=False,
             )
             self._done = True
-            return self.last_prompt, 0, True, info
+            return '', 0, True, info
         game = nash.Game(np.array(self.A), np.array(self.B))
         NE = self._pure_nash_equilibria()  # [(row, col), ...]
         action = int(action)
@@ -96,15 +177,51 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
             "action_is_effective": success,
             "success": success,
         }
-        return self.last_prompt, reward, True, info
+        return '', reward, True, info
 
-    def render(self) -> str:
-        return self.last_prompt
+    def step_mix(self, action: str) -> Tuple[str, float, bool, Dict]:
+        """
+        Execute one step in the environment.
+        In MixEnv, the action is the answer to the question.
+        NOTE should also handle predefined invalid action (0)
+        Args:
+            action: Action to take, must be in action space, or default invalid action
+        Returns:
+            observation, reward, done, info
+            observation: updated game prompt;
+            info: dictionary
+        """
+        # 数学题没必要再问一次，直接设置max_turn数量为1
+        # 直接对比action和答案是否相同
+        type = self.question0['type']
+        if type == 'math':
+            ground_truth = parse(self.question0['answer'])
+            answer = parse(action)
+            valid = not (len(answer) == 0)  # 如果没有匹配到数字，输出的是空列表
+            success = verify(answer, ground_truth)
+            reward = int(success)
+            prompt = 'Answer is correct!' if success else 'Answer is incorrect.'
+            done = True
+        else:
+            # 判定选项是否正确，答案为ABCD其中的一个            
+            answer = self._extract_choice(action)
+            if answer is None or answer not in ['A', 'B', 'C', 'D']:
+                success = False
+                valid = False
+            else:
+                success = answer == self.question0['answer']
+                valid = True
+            reward = int(success)
+            prompt = 'Answer is correct!' if success else 'Answer is incorrect.'
+            done = True
+        info = {'action_is_effective': success, 'action_is_valid': valid, 'success': success}
+        return ('', reward, done, info)
 
-    def close(self):
-        pass
+    def close():
+        # 清空数据相关的变量信息
+        self.data_train = None
+        self.question0 = None
 
-    #内部函数
     #版本问题，手写用is_best_response 代替game.pure_nash_equilibria()判断纯策略纳什均衡
     def _pure_nash_equilibria(self) -> List[Tuple[int, int]]:
         game = nash.Game(np.array(self.A), np.array(self.B))
@@ -255,7 +372,7 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
 
         return templates
 
-    def _render_prompt(self) -> str:
+    def _render_nash_prompt(self) -> str:
         p1a, p1b = self.config.action_labels_p1
         p2x, p2y = self.config.action_labels_p2
         A11, A12 = self.A[0]
@@ -282,26 +399,24 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
 
 
 if __name__ == "__main__":
-    from .config import NashEnvConfig
-    cfg = NashEnvConfig()
-    env = NashEnv(cfg)
-    while 1:
-        obs = env.reset(seed=random.randint(0, 1000))
-        print(obs)
-        action = input("Enter action: ")
-        if action == 'q':
-            break
-        obs, reward, done, info = env.step(action)
-        print("reward:", reward, "done:", done)
-        print(info)
-
-    # print(obs)
-
-    # print("STEP (action=2)")
-    # obs2, reward, done, info = env.step(2)
-    # print("reward:", reward, "done:", done)
-    # print("NE:", info["NE"])
-    # print("success:", info["success"])
-
-    # print("RENDER")
-    # print(env.render())
+    # import matplotlib.pyplot as plt
+    for key in ["http_proxy", "https_proxy", "all_proxy", 
+            "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+        os.environ.pop(key, None)
+    config = NashMixEnvConfig()
+    env = NashMixEnv(config)
+    # print(env.reset(seed=42))
+    r = True
+    while r:
+        done = False
+        env.reset(random.randint(0, 1000))
+        while not done:
+            print(env.render())
+            keyboard = input("Enter answer: ")
+            if keyboard == 'q':
+                r = False
+                break
+            obs, reward, done, info = env.step(keyboard)
+            for o in [obs, reward, done, info]:
+                print(o)
+        print('env done! next round')
