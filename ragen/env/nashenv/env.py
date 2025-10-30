@@ -270,7 +270,6 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
             f"- Enter 1 to select {p1a if self.role=='P1' else p2x}\n"
             f"- Enter 2 to select {p1b if self.role=='P1' else p2y}"
         )
-
         template = self.templates[self.variant_idx]
         return template.format(
             role=role_sent,
@@ -284,24 +283,16 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
 if __name__ == "__main__":
     from .config import NashEnvConfig
     cfg = NashEnvConfig()
-    env = NashEnv(cfg)
-    while 1:
-        obs = env.reset(seed=random.randint(0, 1000))
-        print(obs)
-        action = input("Enter action: ")
-        if action == 'q':
-            break
-        obs, reward, done, info = env.step(action)
-        print("reward:", reward, "done:", done)
-        print(info)
-
-    # print(obs)
-
-    # print("STEP (action=2)")
-    # obs2, reward, done, info = env.step(2)
-    # print("reward:", reward, "done:", done)
-    # print("NE:", info["NE"])
-    # print("success:", info["success"])
-
-    # print("RENDER")
-    # print(env.render())
+    for game in ["PD", "SH", "MP"]:
+        A, B = cfg.get_payoff_matrices(game)
+        print(game)
+        game = nash.Game(np.array(A), np.array(B))
+        NE = []
+        for i in [0, 1]:   # P1 行
+            for j in [0, 1]:  # P2 列
+                row_strategy = np.zeros(2); row_strategy[i] = 1
+                col_strategy = np.zeros(2); col_strategy[j] = 1
+                is_row_best, is_col_best = game.is_best_response(row_strategy, col_strategy)
+                if is_row_best and is_col_best:
+                    NE.append((i, j))
+        print(NE)

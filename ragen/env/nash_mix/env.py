@@ -127,11 +127,14 @@ class NashMixEnv(BaseLanguageBasedEnv, gym.Env):
             prompt, reward, done, info = self.step_nash(action)
         # 如果是task2：直接返回结果
         if len(self.phase) == 2:
+            print('phase 2')
             return prompt, reward, done, info
         # 如果是task1、不正确，提前终止
         if len(self.phase) == 1 and reward == 0:
+            print('task1 incorrect')
             return prompt, reward, done, info
         # task1且正确，进入task2
+        print('Correct. Into Phase 2.')
         if self.phase[-1] == 'mix':
             self.phase.append('nash')
         else:

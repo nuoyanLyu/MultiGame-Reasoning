@@ -92,6 +92,14 @@ custom_envs:
     env_config:
       seed: 123
 
+  NashNew:
+    env_type: nash_new
+    max_actions_per_traj: 1
+    env_instruction: ""
+    max_tokens: 200
+    env_config:
+      seed: 123
+
   SimpleSokoban:
     env_type: sokoban
     max_actions_per_traj: 10 # used in environment state manager to control the actual max actions executed per trajectory
