@@ -13,13 +13,13 @@ root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan'
 batch_size = 16
 # model_path = 'math'
 parser = argparse.ArgumentParser()
-# parser.add_argument("--model_path", type=str, default="mix")
+parser.add_argument("--model_path", type=str, default="mix")
 parser.add_argument("--model_name", type=str, default="Qwen2.5-1.5B-Instruct")
 args = parser.parse_args()
 # model_path = args.model_path
 model_name = args.model_name
-# tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
-tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
+tokenizer = hf_tokenizer(f"{root_path}/{model_path}/{model_name}")
+# tokenizer = hf_tokenizer(f"{root_path}/{model_name}")
 time_str = time.strftime("%m-%d-%H-%M", time.localtime())
 # file_name = 'game100-gsm8k-09-23-17-39.json'
 # file_name = 'Qwen2.5-1.5B-Instruct-gsm8k-09-23-17-44.json'

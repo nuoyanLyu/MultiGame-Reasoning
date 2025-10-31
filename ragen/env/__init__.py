@@ -22,7 +22,7 @@ from .nashenv.env import NashEnv
 from .nashenv.config import NashEnvConfig
 from .nash_mix.env import NashMixEnv
 from .nash_mix.config import NashMixEnvConfig
-from .nash_new.env import NashNewEnv
+from .nash_new.env import NashNew
 from .nash_new.env import NashNewConfig
 
 
