@@ -128,3 +128,5 @@ reason_test/*.json
 reason_test/lm-eval/ 
 # test datafiles
 reason_test/*.txt
+# test result files
+reason_test/results/

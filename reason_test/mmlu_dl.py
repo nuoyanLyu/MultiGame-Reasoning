@@ -11,12 +11,13 @@ from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
 from datasets import load_dataset
+import random
 
-root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
+root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 batch_size = 16
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="tictactoe")
-parser.add_argument("--model_name", type=str, default="game50")
+parser.add_argument("--model_path", type=str, default="nash-new")
+parser.add_argument("--model_name", type=str, default="nash50")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name
@@ -95,9 +96,10 @@ def extract_choice(text: str):
     return None
 
 
-def test_mmlu(llm, sampling_params, mmlu):
+def test_mmlu(llm, sampling_params, mmlu, num_samples=5):
     answers = []
     accs = {}
+    acc_list = []
     for i in tqdm.trange(0, len(mmlu), batch_size):  # len(math['test'])
         # 调整prompt内容，之前的格式不太对劲，导致模型输出的最后一个数字不是最后一个数字
         data = mmlu[i: i + batch_size]
@@ -117,8 +119,9 @@ def test_mmlu(llm, sampling_params, mmlu):
             if label not in accs:
                 accs[label] = []
             accs[label].append(choice)
+            acc_list.append(choice)
             
-    return answers, accs
+    return answers, accs, acc_list
 
 
 def save_results_to_markdown(acc, model_name, output_file='reason_test/mmlu-results.txt'):
@@ -147,7 +150,99 @@ def save_results_to_markdown(acc, model_name, output_file='reason_test/mmlu-resu
             f.write(row + "\n")
         f.write(f"| **Total** | **{total_acc:.4f}** |\n\n")
     print(f"total acc: {total_acc:.4f}")
+    print(f"total invalid: {total_invalid:.4f}")
     print(f"Results saved to {output_file}")
+
+
+def save_sample_results(model_name, acc_list, answers, mmlu_data, 
+                       num_samples=5, output_dir="reason_test/results"):
+    """
+    保存部分正确和错误的测试结果，便于分析
+    
+    Args:
+        model_name: 模型名称
+        accs: 准确率列表、不区分类别
+        answers: 模型生成的答案列表
+        mmlu_data: 测试数据集
+        num_samples: 每种类型保存的样本数量
+        output_dir: 输出目录
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    time_str = time.strftime("%m-%d-%H-%M", time.localtime())
+    output_file = f"{output_dir}/{model_name}-mmlu-{time_str}.json"
+    
+    # 收集正确和错误的样本索引
+    correct_indices = []
+    incorrect_indices = []
+    invalid_indices = []
+    
+    # 遍历所有类别和样本
+    idx = 0
+    for result in acc_list:
+        if result is None:
+            invalid_indices.append(idx)
+        elif result == 1:
+            correct_indices.append(idx)
+        else:
+            incorrect_indices.append(idx)
+        idx += 1
+    
+    # 限制样本数量
+    if len(correct_indices) > num_samples:
+        correct_indices = correct_indices[:num_samples]
+    if len(incorrect_indices) > num_samples:
+        incorrect_indices = incorrect_indices[:num_samples]
+    if len(invalid_indices) > num_samples:
+        invalid_indices = invalid_indices[:num_samples]
+    
+    # 准备保存的数据
+    samples = {
+        "model_name": model_name,
+        "correct_samples": [],
+        "incorrect_samples": [],
+        "invalid_samples": []
+    }
+    
+    # 添加正确样本
+    for idx in correct_indices:
+        # 获取对应的题目信息
+        data_idx = idx % len(mmlu_data)
+        samples["correct_samples"].append({
+            "question": mmlu_data['question'][data_idx],
+            "choices": mmlu_data['choices'][data_idx],
+            "model_answer": answers[idx],
+            "ground_truth": ['A', 'B', 'C', 'D'][mmlu_data['answer'][data_idx]],
+            "subject": mmlu_data['subject'][data_idx]
+        })
+    
+    # 添加错误样本
+    for idx in incorrect_indices:
+        data_idx = idx % len(mmlu_data)
+        samples["incorrect_samples"].append({
+            "question": mmlu_data['question'][data_idx],
+            "choices": mmlu_data['choices'][data_idx],
+            "model_answer": answers[idx],
+            "ground_truth": ['A', 'B', 'C', 'D'][mmlu_data['answer'][data_idx]],
+            "subject": mmlu_data['subject'][data_idx]
+        })
+    
+    # 添加无效样本
+    for idx in invalid_indices:
+        data_idx = idx % len(mmlu_data)
+        samples["invalid_samples"].append({
+            "question": mmlu_data['question'][data_idx],
+            "choices": mmlu_data['choices'][data_idx],
+            "model_answer": answers[idx],
+            "ground_truth": ['A', 'B', 'C', 'D'][mmlu_data['answer'][data_idx]],
+            "subject": mmlu_data['subject'][data_idx]
+        })
+    
+    # 保存到文件
+    with open(output_file, "w") as f:
+        json.dump(samples, f, indent=4)
+    
+    print(f"✅ Sample results saved to {output_file}")
+    print(f"Saved {len(correct_indices)} correct, {len(incorrect_indices)} incorrect and {len(invalid_indices)} invalid samples")
 
 
 if __name__ == '__main__':
@@ -160,6 +255,7 @@ if __name__ == '__main__':
     mmlu = load_dataset(f"{path0}/mmlu/", 'all')['test']
     llm, sampling_params = load_llm()
     # exit(0)
-    answers, acc = test_mmlu(llm, sampling_params, mmlu)
-    acc_list = []
+    answers, acc, acc_list = test_mmlu(llm, sampling_params, mmlu)
     save_results_to_markdown(acc, model_name)
+    # 保存部分测试结果，便于分析
+    save_sample_results(model_name, acc_list, answers, mmlu, num_samples=20)

@@ -9,6 +9,7 @@ import os, logging
 from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
+import random
 
 root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
 batch_size = 16
@@ -122,6 +123,85 @@ def save_log(model_name, accs_strict, accs_flex, output_file="reason_test/gsm8k-
     print(f"✅ Log saved to {output_file}")
 
 
+def save_sample_results(model_name, accs_strict, accs_flex, answers, math_data, 
+                       num_samples=5, output_dir="reason_test/results"):
+    """
+    保存部分正确和错误的测试结果，便于分析
+    
+    Args:
+        model_name: 模型名称
+        accs_strict: 严格模式下的准确率列表
+        accs_flex: 灵活模式下的准确率列表
+        answers: 模型生成的答案列表
+        math_data: 测试数据集
+        num_samples: 每种类型保存的样本数量
+        output_dir: 输出目录
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    time_str = time.strftime("%m-%d-%H-%M", time.localtime())
+    output_file = f"{output_dir}/{model_name}-gsm8k-{time_str}.json"
+    
+    # 收集正确和错误的样本索引
+    correct_indices = []
+    incorrect_indices = []
+    invalid_indices = []
+    
+    for i, (acc_strict, acc_flex) in enumerate(zip(accs_strict, accs_flex)):
+        if acc_strict is None:
+            invalid_indices.append(i)
+        elif acc_strict == 1:
+            correct_indices.append(i)
+        else:
+            incorrect_indices.append(i)
+    
+    # 限制样本数量
+    correct_indices = correct_indices[:num_samples]
+    incorrect_indices = incorrect_indices[:num_samples]
+    # invalid担心数量不够——先判断一下
+    if len(invalid_indices) > num_samples:
+        invalid_indices = invalid_indices[:num_samples]
+    
+    # 准备保存的数据
+    samples = {
+        "model_name": model_name,
+        "correct_samples": [],
+        "incorrect_samples": [],
+        "invalid_samples": [],
+    }
+    
+    # 添加正确样本
+    for idx in correct_indices:
+        samples["correct_samples"].append({
+            "question": math_data['test']['prompt'][idx][0]['content'],
+            "model_answer": answers[idx],
+            "ground_truth": math_data['test']['reward_model'][idx]['ground_truth'],
+        })
+    
+    # 添加错误样本
+    for idx in incorrect_indices:
+        samples["incorrect_samples"].append({
+            "question": math_data['test']['prompt'][idx][0]['content'],
+            "model_answer": answers[idx],
+            "ground_truth": math_data['test']['reward_model'][idx]['ground_truth'],
+        })
+    
+    # 添加invalid样本
+    for idx in invalid_indices:
+        samples["invalid_samples"].append({
+            "question": math_data['test']['prompt'][idx][0]['content'],
+            "model_answer": answers[idx],
+            "ground_truth": math_data['test']['reward_model'][idx]['ground_truth'],
+        })
+    
+    
+    # 保存到文件
+    with open(output_file, "w") as f:
+        json.dump(samples, f, indent=4)
+    
+    print(f"✅ Sample results saved to {output_file}")
+    print(f"Saved {len(correct_indices)} correct, {len(incorrect_indices)} incorrect samples and {len(invalid_indices)} invalid samples.")
+
+
 if __name__ == '__main__':
     os.environ["VLLM_DISABLE_PROGRESS_BAR"] = "1"
     os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
@@ -145,6 +225,5 @@ if __name__ == '__main__':
     print('total acc:', format(acc0, '.4f'))
     # 写入日志文件
     save_log(model_name, accs_strict, accs_flex)
-    # answers存储
-    # with open(f'reason_test/gsm8k-{model_name}-{time_str}.json', 'w') as f:
-    #     json.dump(answers, f)
+    # 保存部分测试结果，便于分析
+    save_sample_results(model_name, accs_strict, accs_flex, answers, math, num_samples=20)
