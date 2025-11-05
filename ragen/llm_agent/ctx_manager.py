@@ -23,14 +23,16 @@ from dataclasses import asdict
 register_resolvers()
 
 def get_special_tokens(tokenizer: AutoTokenizer):
-    if "qwen" in tokenizer.name_or_path.lower():
-        special_token = tokenizer.encode("<|im_start|>")[0]
-        reward_token = tokenizer.encode("<|im_end|>")[0]
-    elif "llama-3" in tokenizer.name_or_path.lower():
-        special_token = 128006
-        reward_token = 128009
-    else:
-        raise ValueError(f"Unsupported model: {tokenizer.name_or_path}")
+    # if "qwen" in tokenizer.name_or_path.lower():
+    # 只训练QWEN系列模型，取消对其他模型接口的支持
+    # TODO：后续如果换成其他模型可能需要对应适配
+    special_token = tokenizer.encode("<|im_start|>")[0]
+    reward_token = tokenizer.encode("<|im_end|>")[0]
+    # elif "llama-3" in tokenizer.name_or_path.lower():
+    #     special_token = 128006
+    #     reward_token = 128009
+    # else:
+    #     raise ValueError(f"Unsupported model: {tokenizer.name_or_path}")
     return special_token, reward_token
 
 def get_masks_and_scores(input_ids: torch.Tensor, tokenizer: AutoTokenizer, all_scores: List[List[float]] = None, use_turn_scores: bool = False, enable_response_mask: bool = False):

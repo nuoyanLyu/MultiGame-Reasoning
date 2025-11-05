@@ -10,6 +10,8 @@ import hydra
 import os
 from verl import DataProto
 import torch
+# 添加检测异常，这样nan的时候能够回溯到报错位置
+torch.autograd.set_detect_anomaly(True)
 import numpy as np
 from ragen.utils import register_resolvers
 register_resolvers()
@@ -131,8 +133,9 @@ def add_dependency_and_validate_config(config):
         f"micro_batch_size_per_gpu * n_gpus_per_node ({config.micro_batch_size_per_gpu * config.trainer.n_gpus_per_node}) must be less than or equal to ppo_mini_batch_size ({config.actor_rollout_ref.actor.ppo_mini_batch_size})"
     assert config.actor_rollout_ref.actor.ppo_mini_batch_size % (config.micro_batch_size_per_gpu * config.trainer.n_gpus_per_node) == 0, \
         f"ppo_mini_batch_size ({config.actor_rollout_ref.actor.ppo_mini_batch_size}) must be divisible by micro_batch_size_per_gpu * n_gpus_per_node ({config.micro_batch_size_per_gpu * config.trainer.n_gpus_per_node})"
-    assert "qwen" in config.model_path.lower() or (not config.enable_response_mask), \
-        "response mask is currently only supported for qwen models"
+    # skip this assertion for updated model_path
+    # assert "qwen" in config.model_path.lower() or (not config.enable_response_mask), \
+    #     "response mask is currently only supported for qwen models"
     assert len(str(config.system.CUDA_VISIBLE_DEVICES).split(',')) == config.trainer.n_gpus_per_node, \
         f"CUDA_VISIBLE_DEVICES ({config.system.CUDA_VISIBLE_DEVICES}) must have the same number of GPUs as n_gpus_per_node ({config.trainer.n_gpus_per_node})"
     assert (config.actor_rollout_ref.rollout.tensor_model_parallel_size == config.trainer.n_gpus_per_node) or (not config.actor_rollout_ref.rollout.tp_size_check), \
