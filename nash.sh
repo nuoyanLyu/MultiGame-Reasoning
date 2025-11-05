@@ -7,16 +7,17 @@ USE_BASE="algorithm.kl_ctrl.kl_coef=0.001 actor_rollout_ref.actor.kl_loss_coef=0
 
 LOCAL_PATH="/root/autodl-tmp/nash-new"
 LOG_DIR="/root/RAGEN/logs/nash-new"
+MODEL_PATH="/root/autodl-tmp/nash-new/nash200"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
 # 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
 TIMESTAMP=$(date +"%m-%d-%H-%M")
 
-WANDB_MODE=offline RAY_DEDUP_LOGS=0 python train.py --config-name _16_nash_new \
+WANDB_MODE=offline HYDRA_FULL_ERROR=1 RAY_DEDUP_LOGS=0 python train.py --config-name _16_nash_new \
  system.CUDA_VISIBLE_DEVICES=\"0,1\" \
- model_path=/root/autodl-tmp/Qwen2.5-1.5B-Instruct \
+ model_path=$MODEL_PATH \
  trainer.default_local_dir=$LOCAL_PATH \
- trainer.total_training_steps=200 \
+ trainer.total_training_steps=400 \
  trainer.n_gpus_per_node=2 \
  actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
  trainer.experiment_name=nash-new \

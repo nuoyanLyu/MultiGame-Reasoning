@@ -80,7 +80,7 @@ class NashNew(BaseLanguageBasedEnv, gym.Env):
         best_action = self._get_eq()
         action = int(action)
         idx = action - 1
-        print('best action', best_action)
+        # print('best action', best_action)
         success = (best_action == idx)
         reward = 1 if success else 0
         info: Dict[str, Any] = {
