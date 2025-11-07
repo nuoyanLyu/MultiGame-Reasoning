@@ -52,7 +52,7 @@ class UndercoverEnv(MultiGameEnv):
         self.game_over = False
         self.reset(self.seed)
 
-    def reset(self, seed):
+    def reset(self, seed, **kwargs):
         """Initializes the conversation history, choose words and identities"""
         self.seed = seed
         seed_everything(seed)

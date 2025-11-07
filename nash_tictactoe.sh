@@ -7,6 +7,7 @@ USE_BASE="algorithm.kl_ctrl.kl_coef=0.001 actor_rollout_ref.actor.kl_loss_coef=0
 
 LOCAL_PATH="/root/autodl-tmp/nash-tictactoe"
 LOG_DIR="/root/RAGEN/logs/nash-tictactoe"
+MODEL_PATH="/root/autodl-tmp/nash-tictactoe/nt50"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
 # 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
@@ -14,7 +15,7 @@ TIMESTAMP=$(date +"%m-%d-%H-%M")
 
 WANDB_MODE=offline RAY_DEDUP_LOGS=0 python train.py --config-name _13_nash_tictactoe \
  system.CUDA_VISIBLE_DEVICES=\"0,1\" \
- model_path=/root/autodl-tmp/Qwen2.5-1.5B-Instruct \
+ model_path=$MODEL_PATH \
  trainer.default_local_dir=$LOCAL_PATH \
  trainer.total_training_steps=150 \
  trainer.n_gpus_per_node=2 \
