@@ -12,8 +12,8 @@ class UndercoverEnvConfig:
         # default_factory=lambda: [{'model_name': 'deepseek'}]
         # default_factory=lambda: [{'model_name': 'tictactoe/grpo/game_40', 'port': '4040'}]
         default_factory=lambda: 
-            [{'model_name': 'deepseek'},{'model_name': 'deepseek'},
-             {'model_name': 'deepseek'},{'model_name': 'deepseek'},]
+            [{'model_name': 'google/gemini-2.5-flash'},{'model_name': 'google/gemini-2.5-flash'},
+             {'model_name': 'google/gemini-2.5-flash'},{'model_name': 'google/gemini-2.5-flash'},]
             # [{"model_name": "x-ai/grok-4-fast"}, {"model_name": "x-ai/grok-4-fast"},
             #  {"model_name": "x-ai/grok-4-fast"}, {"model_name": "x-ai/grok-4-fast"},]
     )

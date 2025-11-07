@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import re
 from typing import Optional, List, Tuple, Any, Dict
-from openai import OpenAI
+from openai import OpenAI, APITimeoutError, APIConnectionError, APIStatusError
 import os
 import random 
 import numpy as np
@@ -195,7 +195,7 @@ class BaseEnvConfig(ABC):
 class EnvPlayer():
     """在双人或多人玩家场景下初始化环境中的其他玩家"""
 
-    def __init__(self, num_players, player_info, system_prompt='', temperature=0.5, model_path='/root/autodl-tmp', max_tokens=200) -> None:
+    def __init__(self, num_players, player_info, system_prompt='', temperature=0.5, model_path='/root/autodl-tmp', max_tokens=200, max_retries=3) -> None:
         self.system_prompt = system_prompt
         self.temperature = temperature
         self.num_players = num_players
@@ -204,13 +204,16 @@ class EnvPlayer():
         # 存储玩家信息，不直接初始化带key的client
         self.players = []
         self.max_tokens = max_tokens
+        # 新增request_timeout时间限制以及retry信息
+        self.max_retries = max_retries
         for i in range(self.num_players - 1):
             model_name = player_info[i]['model_name']
             if model_name == 'deepseek':
                 # 只保存模型类型，key 在 act 时动态获取
                 self.players.append({
                     'type': 'deepseek',
-                    'model': 'deepseek-chat'
+                    'model': 'deepseek-chat',
+                    'request_timeout': 15
                 })
             elif 'game' in model_name or 'Qwen' in model_name:
                 port = player_info[i]['port']
@@ -221,17 +224,20 @@ class EnvPlayer():
                 self.players.append({
                     'type': 'qwen',
                     'client': client,
-                    'model': f"{model_path}/{model_name}"
+                    'model': f"{model_path}/{model_name}",
+                    'request_timeout': 2
                 })
             else:
                 self.players.append({
                     'type': 'openrouter',
-                    'model': model_name
+                    'model': model_name,
+                    'request_timeout': 10
                 })
 
     def act(self, message, player_id):
         """
         调用API、获得指定玩家回复
+        添加超时和重试逻辑
         Args:
             message: 用户消息
             player_id: 玩家ID (0 表示第一个非训练模型的 Player)
@@ -249,31 +255,49 @@ class EnvPlayer():
         player = self.players[player_id]
         # print(player)
         # 根据类型动态获取 client
-        if player['type'] == 'deepseek':
-            client = OpenAI(
-                api_key=next(deepseek_keys),  # 每次调用都换一个 key
-                base_url='https://api.deepseek.com'
-            )
-            model = player['model']
-        elif player['type'] == 'qwen':
-            client = player['client']  # Qwen 类型可直接复用
-            model = player['model']
-        else:  # openrouter
-            client = OpenAI(
-                api_key=next(openrouter_keys),  # 每次调用都换一个 key
-                base_url='https://openrouter.ai/api/v1',
-            )
-            model = player['model']
+        retries = 0
+        timeout = player['request_timeout'] # 从配置中获取，默认 10 秒
+        while retries < self.max_retries:
+            try:
+                if player['type'] == 'deepseek':
+                    client = OpenAI(
+                        api_key=next(deepseek_keys),  # 每次调用都换一个 key
+                        base_url='https://api.deepseek.com'
+                    )
+                    model = player['model']
+                elif player['type'] == 'qwen':
+                    client = player['client']  # Qwen 类型可直接复用
+                    model = player['model']
+                else:  # openrouter
+                    client = OpenAI(
+                        api_key=next(openrouter_keys),  # 每次调用都换一个 key
+                        base_url='https://openrouter.ai/api/v1',
+                    )
+                    model = player['model']
+                # 请求模型
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=message0,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    timeout=timeout, # <--- 设置超时
+                )
+                
+                # 成功，返回结果
+                return response.choices[0].message.content
+            except (APITimeoutError, APIConnectionError, APIStatusError) as e:
+                retries += 1
+                wait_time = 2 ** retries # 指数退避
+                print(f"⚠️ 玩家 {player_id} ({player['type']}) 请求超时 (尝试 {retries}/{self.max_retries}). {wait_time} 秒后重试... 错误: {e}")
+                time.sleep(wait_time) # 等待后重试
+            except Exception as e:
+                # 捕获其他不可重试的错误 (如: 认证失败、请求格式错误 4xx)
+                print(f"❌ 玩家 {player_id} ({player['type']}) 发生不可重试的错误: {e}")
+                exit(1)
 
-        # 请求模型
-        response = client.chat.completions.create(
-            model=model,
-            messages=message0,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens, # max_tokens最好进行指定
-        )
-        return response.choices[0].message.content
-
+        # 如果循环结束 (所有重试均失败)
+        print(f"❌ 玩家 {player_id} ({player['type']}) 在 {self.max_retries} 次尝试后仍失败。")
+        exit(1)
 
 class MultiGameEnv(ABC):
     """
@@ -349,15 +373,21 @@ def seed_everything(seed=11):
 
 if __name__ == "__main__":
     # 测试simplifier是否能够正常使用 google/gemini-2.5-flash-lite
-    simpifier = Simplifier('google/gemini-2.5-flash')
-    history = """
-Player 2: 1. You can use it to make juice or pie.
-Player 4: 1. I think a teacher once gave one to me. 2. It's a very crisp fruit, and it's a good source of fiber.
-Player 1: 1. It's a very common fruit. 2. It's a healthy snack that you can pack for lunch. 3. I'm not going to give any more clues. It's too risky.
-Player 3: 1. It's very sweet and you can peel it. 2. I think it's part of a very popular saying. 3. It's a classic snack, and it's a common color.
-Player 5: 1. It's typically round and can be red or green. 2. You can find it in a lot of different seasons. 3.I'm feeling confident about who the spy is.
+#     simpifier = Simplifier('google/gemini-2.5-flash')
+#     history = """
+# Player 2: 1. You can use it to make juice or pie.
+# Player 4: 1. I think a teacher once gave one to me. 2. It's a very crisp fruit, and it's a good source of fiber.
+# Player 1: 1. It's a very common fruit. 2. It's a healthy snack that you can pack for lunch. 3. I'm not going to give any more clues. It's too risky.
+# Player 3: 1. It's very sweet and you can peel it. 2. I think it's part of a very popular saying. 3. It's a classic snack, and it's a common color.
+# Player 5: 1. It's typically round and can be red or green. 2. You can find it in a lot of different seasons. 3.I'm feeling confident about who the spy is.
 
-    """
-    prompt = "\nSummarize the conversation history of each player in format: `Player x: [conversation]\n`. Keep the summary ** under 100 words. **"
+#     """
+#     prompt = "\nSummarize the conversation history of each player in format: `Player x: [conversation]\n`. Keep the summary ** under 100 words. **"
 
-    print(simpifier.simplify(history, prompt=prompt))
+#     print(simpifier.simplify(history, prompt=prompt))
+    # 测试request_timeout设置是否合理
+    env_player = EnvPlayer(
+        num_players=2,
+        player_info=[{'model_name': 'deepseek-1-1-1'}]
+    )
+    print(env_player.act('hello', 0))
