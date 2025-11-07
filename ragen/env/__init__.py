@@ -24,6 +24,9 @@ from .nash_mix.env import NashMixEnv
 from .nash_mix.config import NashMixEnvConfig
 from .nash_new.env import NashNew
 from .nash_new.env import NashNewConfig
+from .undercover.env import UndercoverEnv
+from .undercover.config import UndercoverEnvConfig
+
 
 
 REGISTERED_ENVS = {
@@ -40,6 +43,7 @@ REGISTERED_ENVS = {
     'nashenv': NashEnv,
     'nash_new': NashNew,
     'nash_mix': NashMixEnv,
+    'undercover': UndercoverEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -56,6 +60,7 @@ REGISTERED_ENV_CONFIGS = {
     'nashenv': NashEnvConfig,
     'nash_new': NashNewConfig,
     'nash_mix': NashMixEnvConfig,
+    'undercover': UndercoverEnvConfig,
 }
 
 try:

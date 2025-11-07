@@ -12,16 +12,16 @@ actor_rollout_ref:
 es_manager:  # 数值沿用原始设定，并没有缩小规模
   format_penalty: -0.1
   train:
-    env_groups: 16 # 12 + 4
+    env_groups: 32 # 16 + 16 混合数据还是应该强调加和
     # under the same group, the env config and env seed are ensured to be equal
     group_size: 16  # 16
     env_configs:
-      tags: ["TicTacToe", "Nash"]
-      n_groups: [12, 4] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+      tags: ["TicTacToe", "NashNew"]
+      n_groups: [16, 16] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
   val:
     env_groups: 32 # 256 -> 32
     group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
     env_configs:
-      tags: ["TicTacToe", "Nash"]
+      tags: ["TicTacToe", "NashNew"]
       n_groups: [16, 16] # [256] -> [32] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
 
