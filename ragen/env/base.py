@@ -291,9 +291,11 @@ class EnvPlayer():
                 print(f"⚠️ 玩家 {player_id} ({player['type']}) 请求超时 (尝试 {retries}/{self.max_retries}). {wait_time} 秒后重试... 错误: {e}")
                 time.sleep(wait_time) # 等待后重试
             except Exception as e:
+                retries += 1
+                wait_time = 2 ** retries # 指数退避
                 # 捕获其他不可重试的错误 (如: 认证失败、请求格式错误 4xx)
                 print(f"❌ 玩家 {player_id} ({player['type']}) 发生不可重试的错误: {e}")
-                exit(1)
+                time.sleep(wait_time) # 等待后重试
 
         # 如果循环结束 (所有重试均失败)
         print(f"❌ 玩家 {player_id} ({player['type']}) 在 {self.max_retries} 次尝试后仍失败。")

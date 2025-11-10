@@ -14,7 +14,7 @@ es_manager:  # 数值沿用原始设定，并没有缩小规模
   train:
     env_groups: 32 # 12 + 4
     # under the same group, the env config and env seed are ensured to be equal
-    group_size: 32  # 16
+    group_size: 16  # 16
     env_configs:
       tags: ["NashNew", "MixTrain"]
       n_groups: [16, 16] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
