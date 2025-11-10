@@ -317,14 +317,14 @@ class UndercoverEnv(MultiGameEnv):
                 print('error! vote not valid! DEBUG!')
                 exit(1)
         
-        print('vote counts:', vote_counts)
+        # print('vote counts:', vote_counts)
         max_votes = max([k for k in vote_counts.values()])
         eliminated_candidates = [e for e in vote_counts.keys() 
                                     if vote_counts[e] == max_votes]
-        print('eliminated candidates:', eliminated_candidates)
+        # print('eliminated candidates:', eliminated_candidates)
         # Handle ties by randomly choosing one to eliminate
         eliminated_id = random.choice(eliminated_candidates)
-        print('eliminated id:', eliminated_id)
+        # print('eliminated id:', eliminated_id)
         self.alive_players.remove(eliminated_id)
         # eliminated_identity = self.identities[eliminated_id]
         # 返回被票出的人的身份 —— not used
@@ -350,13 +350,13 @@ class UndercoverEnv(MultiGameEnv):
 
     def _start_new_round(self):
         """Resets state for a new round of descriptions and votes."""
-        # self.round_num += 1
+        self.round += 1
         # start from description phase
         self.phase = 'description'
         print('change phase to description and delete votes history')
         self.votes = []
         # The starting player for the new round is the first one in the alive list
-        # self.current_player_id = self.alive_players[0]
+        self.current_player_id = self.alive_players[0]
         # Do not need to change player_id -- handle in `_check_and_transition_phase``
 
     def _history_render(self) -> str:
