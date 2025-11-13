@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # test new model
-MODEL_PATH="nash-new"
+MODEL_PATH="nash-tictactoe"
 
-for i in {250..400..50}
+for i in {50..150..50}
 do
-    MODEL_NAME="nash${i}"
+    MODEL_NAME="nt${i}"
     echo "===== Testing model: $MODEL_NAME ====="
     # game test
     python reason_test/nash-new.py --model_path $MODEL_PATH --model_name $MODEL_NAME
