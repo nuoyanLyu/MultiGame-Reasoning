@@ -5,7 +5,6 @@ from typing import Optional, Tuple, List
 @dataclass
 class NashNewConfig:
     force_role: Optional[str] = None
-    mode: str = "pure_nash_member"  
     seed: int = 123
     render_mode: str = 'text'
     # 定义pay_off_matrix数据类型
