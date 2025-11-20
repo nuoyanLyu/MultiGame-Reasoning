@@ -28,6 +28,8 @@ from .undercover.env import UndercoverEnv
 from .undercover.config import UndercoverEnvConfig
 from .compose.env import ComposeEnv
 from .compose.config import ComposeConfig
+from .mmlu.env import MMLUEnv
+from .mmlu.config import MMLUEnvConfig
 
 
 
@@ -47,6 +49,7 @@ REGISTERED_ENVS = {
     'nash_mix': NashMixEnv,
     'undercover': UndercoverEnv,
     'compose': ComposeEnv,
+    'mmlu': MMLUEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -65,6 +68,7 @@ REGISTERED_ENV_CONFIGS = {
     'nash_mix': NashMixEnvConfig,
     'undercover': UndercoverEnvConfig,
     'compose': ComposeConfig,
+    'mmlu': MMLUEnvConfig,
 }
 
 try:
