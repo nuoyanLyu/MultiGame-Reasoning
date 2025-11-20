@@ -29,7 +29,6 @@ class ComposeEnv(BaseLanguageBasedEnv, gym.Env):
             Config = REGISTERED_ENV_CONFIGS[env_name]
             if hasattr(Config, 'mode'):
                 env_config = Config(mode=mode)
-                print(f'ComposeEnv: {env_name} with mode {mode}')
             else:
                 env_config = Config()
             env = REGISTERED_ENVS[env_name](config=env_config)
