@@ -4,7 +4,8 @@ import re
 
 from openai import NotFoundError
 
-from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed
+from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
+from ragen.env.env_player_factory import create_env_player_for_config
 from .config import TicTacToeEnvConfig
 import gymnasium as gym
 import random
@@ -93,9 +94,7 @@ class TicTacToeEnv(BaseDiscreteActionEnv, gym.Env):
         # 加载多样的init_prompts
         self.init_prompts = self.config.init_prompts
         self.max_env_try = self.config.max_env_try
-        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
-                                    temperature=self.config.temperature,
-                                    model_path=self.config.model_path)
+        self.env_player = create_env_player_for_config(self.config)
         # 不打印了，会并行生成大量输出，删除
         # print(f'[Environment TicTacToe]: set Env Player {self.config.player_info}')
         self.env_id = None
