@@ -8,6 +8,7 @@ import random
 import json
 
 from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
+from ragen.env.env_player_factory import create_env_player_for_config
 from .config import UndercoverEnvConfig
 
 
@@ -26,8 +27,7 @@ class UndercoverEnv(MultiGameEnv):
         assert self.render_mode == 'text'
         self.max_env_try = self.config.max_env_try
         self.init_prompts = self.config.init_prompts
-        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, 
-                                    temperature=self.config.temperature, max_tokens=self.config.env_max_tokens)
+        self.env_player = create_env_player_for_config(self.config)
         self.train_id = None
         self.current_player_id = None
         # game_state应该是一个列表，存储每个玩家历史发言

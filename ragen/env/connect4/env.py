@@ -4,7 +4,8 @@ import re
 
 from openai import NotFoundError
 
-from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed
+from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
+from ragen.env.env_player_factory import create_env_player_for_config
 from .config import Connect4EnvConfig
 import gymnasium as gym
 import random
@@ -96,7 +97,7 @@ class Connect4Env(BaseDiscreteActionEnv, gym.Env):
         self.render_mode = self.config.render_mode
         assert self.render_mode == 'text'
         self.max_env_try = self.config.max_env_try
-        self.env_player = EnvPlayer(self.config.player_num, self.config.player_info, temperature=self.config.temperature)
+        self.env_player = create_env_player_for_config(self.config)
         self.env_id = None
         self.current_player_id = None
         self.history = []
