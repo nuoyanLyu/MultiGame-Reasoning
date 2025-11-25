@@ -222,7 +222,7 @@ class UndercoverEnv(MultiGameEnv):
 {history_str}
 """
         if self.current_player_id != self.train_id:
-            prompt += "Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."
+            prompt += "Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 50 words (tokens)."
         return prompt.strip()
 
     def _move_to_next_player(self):
@@ -276,7 +276,7 @@ class UndercoverEnv(MultiGameEnv):
         """
         # For simplicity, assume `action` is the direct answer.
         pattern = r"<answer>(.*)</answer>"
-        match = re.search(pattern, action)
+        match = re.search(pattern, action, re.DOTALL)
         if match is None:
             return False
         action = match.group(1).strip()

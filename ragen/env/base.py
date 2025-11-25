@@ -325,10 +325,11 @@ class EnvPlayer():
                 # 捕获其他不可重试的错误 (如: 认证失败、请求格式错误 4xx)
                 print(f"❌ 玩家 {player_id} ({player['type']}) 发生不可重试的错误: {e}")
                 time.sleep(wait_time) # 等待后重试
-
+        
         # 如果循环结束 (所有重试均失败)
         print(f"❌ 玩家 {player_id} ({player['type']}) 在 {self.max_retries} 次尝试后仍失败。")
-        exit(1)
+        return ''
+        # exit(1)
 
 class MultiGameEnv(ABC):
     """
