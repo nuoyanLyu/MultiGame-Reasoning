@@ -52,9 +52,14 @@ deepseek_keys = ThreadSafeCycle(deepseek_keys)
 openrouter_keys = keys['openrouter']
 if not openrouter_keys:
     print('No openrouter keys found, please set it in file `ragen/env/api-keys.json`.')
+    print('Cannot use openrouter key.')
     exit(1)
 openrouter_keys = ThreadSafeCycle(openrouter_keys)
-
+dmx_keys = keys['dmx']
+if not dmx_keys:
+    print('No dmx keys found, please set it in file `ragen/env/api-keys.json`.')
+    exit(1)
+dmx_keys = ThreadSafeCycle(dmx_keys)
 
 
 class Simplifier():
@@ -66,9 +71,14 @@ class Simplifier():
                     'type': 'deepseek',
                     'model': 'deepseek-chat'
                 }
-        else:   # openrouter
+        elif '/' in model_name:   # openrouter
             self.player = {
                     'type': 'openrouter',
+                    'model': model_name
+                }
+        else:
+            self.player = {
+                    'type': 'dmx',
                     'model': model_name
                 }
             
@@ -80,10 +90,15 @@ class Simplifier():
                 api_key=next(deepseek_keys),  # 每次调用都换一个 key
                 base_url='https://api.deepseek.com'
             )
-        else:  # openrouter
+        elif self.player['type'] == 'openrouter':  # openrouter
             client = OpenAI(
                 api_key=next(openrouter_keys),  # 每次调用都换一个 key
                 base_url='https://openrouter.ai/api/v1',
+            )
+        elif self.player['type'] == 'dmx':  # dmx
+            client = OpenAI(
+                api_key=next(dmx_keys),  # 每次调用都换一个 key
+                base_url='https://www.dmxapi.cn/v1',
             )
         response = client.chat.completions.create(
             model=self.player['model'],
@@ -227,12 +242,19 @@ class EnvPlayer():
                     'model': f"{model_path}/{model_name}",
                     'request_timeout': 2
                 })
-            else:
+            elif '/' in model_name:
                 self.players.append({
                     'type': 'openrouter',
                     'model': model_name,
                     'request_timeout': 10
                 })
+            else:
+                self.players.append({
+                    'type': 'dmx',
+                    'model': model_name,
+                    'request_timeout': 10
+                })
+
 
     def act(self, message, player_id):
         """
@@ -268,12 +290,19 @@ class EnvPlayer():
                 elif player['type'] == 'qwen':
                     client = player['client']  # Qwen 类型可直接复用
                     model = player['model']
-                else:  # openrouter
+                elif player['type'] == 'openrouter':  # openrouter
                     client = OpenAI(
                         api_key=next(openrouter_keys),  # 每次调用都换一个 key
                         base_url='https://openrouter.ai/api/v1',
                     )
                     model = player['model']
+                elif player['type'] == 'dmx':  # dmx
+                    client = OpenAI(
+                        api_key=next(dmx_keys),  # 每次调用都换一个 key
+                        base_url='https://www.dmxapi.cn/v1',
+                    )
+                    model = player['model']
+
                 # 请求模型
                 response = client.chat.completions.create(
                     model=model,

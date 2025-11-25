@@ -37,7 +37,7 @@ def get_env_player(player_num: int, player_info: List[Dict[str, Any]],
     # 如果缓存中存在，直接返回
     if cache_key in _env_player_cache:
         return _env_player_cache[cache_key]
-    
+    print(f'create new EnvPlayer instance. cache_key: {cache_key}')
     # 创建新实例并缓存
     env_player = EnvPlayer(
         num_players=player_num,
@@ -69,12 +69,13 @@ def create_env_player_for_config(config) -> EnvPlayer:
     Returns:
         EnvPlayer实例
     """
+    # temperature=0.5, model_path='/root/autodl-tmp', max_tokens=200, max_retries=3
     return get_env_player(
         player_num=config.player_num,
         player_info=config.player_info,
-        temperature=getattr(config, 'temperature', 0.7),
-        model_path=getattr(config, 'model_path', ""),
-        max_tokens=getattr(config, 'env_max_tokens', 1024),
+        temperature=getattr(config, 'temperature', 0.5),
+        model_path=getattr(config, 'model_path', "/root/autodl-tmp"),
+        max_tokens=getattr(config, 'env_max_tokens', 200),
         max_retries=getattr(config, 'max_retries', 3),
-        system_prompt=getattr(config, 'system_prompt', None)
+        system_prompt=getattr(config, 'system_prompt', '')
     )
