@@ -18,11 +18,11 @@ es_manager:  # 数值沿用原始设定，并没有缩小规模
       tags: ["Undercover"]
       n_groups: [16] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
   val:
-    env_groups: 32 # 256 -> 32
+    env_groups: 8 # 256 -> 32
     group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
     env_configs:
       tags: ["Undercover"]
-      n_groups: [32] # [256] -> [32] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+      n_groups: [8] # [256] -> [32] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
 
 agent_proxy:
-  max_turn: 4 # 最多进行四轮，两次发言两次投票
+  max_turn: 3 # 最多进行三轮，两次发言一次投票

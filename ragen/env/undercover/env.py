@@ -5,6 +5,7 @@ import re
 from openai import NotFoundError
 import gymnasium as gym
 import random
+import time
 import json
 
 from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
@@ -30,8 +31,6 @@ class UndercoverEnv(MultiGameEnv):
         self.env_player = create_env_player_for_config(self.config)
         self.train_id = None
         self.current_player_id = None
-        # game_state应该是一个列表，存储每个玩家历史发言
-        self.history_info = ""
         self.conversation = []
         for i in range(self.config.player_num):
             # 第i个列表就是第i个玩家的发言历史——后续可视化的时候要好好设计一下
@@ -39,18 +38,21 @@ class UndercoverEnv(MultiGameEnv):
         self.round = 0  # record game round
         # 存储每个人的词以及对应的身份信息
         self.words = []
-        with open("ragen/env/undercover/wordshuffle.json", "r") as f:
+        # wordlist_easy adapted from
+        # https://github.com/xzx34/SocialMaze/tree/main/find_the_spy
+        with open(f"ragen/env/undercover/{self.config.wordlist}", "r") as f:
             self.wordlist = json.load(f)
         self.identities = []
         self.phase = None  # 标志是conversation还是vote轮次
         self.alive_players = None
         self.votes = []
+        self.winner = None
         # 可能需要调用API进行历史对话精简
         self.simplifier = Simplifier('google/gemini-2.5-flash')
         self.simplify_prompt = self.config.simplify_prompt
         self.history = []
         self.game_over = False
-        self.reset(self.seed)
+        # self.reset(self.seed)
 
     def reset(self, seed, **kwargs):
         """Initializes the conversation history, choose words and identities"""
@@ -61,6 +63,8 @@ class UndercoverEnv(MultiGameEnv):
         self.conversation = []
         self.game_over = False
         self.current_player_id = 0
+        self.winner = None
+        self.round = 0  # 初始化发言轮次计数器
         for i in range(self.config.player_num):
             # 第i个列表就是第i个玩家的发言历史，这样组织更方便后续的simplify过程
             # 后续需要设置合理的可视化场景
@@ -69,6 +73,7 @@ class UndercoverEnv(MultiGameEnv):
         self.train_id = random.choice(list(range(self.config.player_num)))
         # 初始化——选择词汇信息
         word_pair = random.choice(self.wordlist)
+        # print(word_pair)
         # 选择undercover的ID信息
         undercover_id = random.choice(list(range(self.config.player_num)))
         # 根据undercoverID记录identity信息以及word信息
@@ -86,9 +91,11 @@ class UndercoverEnv(MultiGameEnv):
         # 如果环境是玩家0先手，环境先下一步
         while self.current_player_id != self.train_id:
             prompt_for_env_player = self.render()
+            # print(prompt_for_env_player)
             action = self.env_player.act(prompt_for_env_player, self.current_player_id)
             self._process_env_action(self.current_player_id, action)
             self._move_to_next_player()
+            self._check_and_transition_phase()
 
     def step(self, action: str) -> Tuple[str, bool, bool, Dict]:
         """
@@ -121,16 +128,12 @@ class UndercoverEnv(MultiGameEnv):
         # 2. Run game loop for env_players until it's trainer's turn again or game ends
         # 还有一种可能性——Trainer自己被票走了，加上这个判定
         while self.current_player_id != self.train_id and not self.game_over and self.train_id in self.alive_players:
-            # 确定游戏阶段
-            if self.game_over or self.train_id not in self.alive_players: 
-                # trainer死了或者游戏已经结束，break
-                break
             prompt_for_env_player = self.render()
             env_id = self.current_player_id
-            if env_id > self.train_id:
+            if self.current_player_id > self.train_id:
                 env_id -= 1
             valid = False
-            for i in range(self.max_env_try):
+            for _ in range(self.max_env_try):
                 env_action = self.env_player.act(prompt_for_env_player, env_id)
                 valid = self._process_env_action(self.current_player_id, env_action)
                 if valid:
@@ -144,7 +147,7 @@ class UndercoverEnv(MultiGameEnv):
                     "action": action,
                 })
                 prompt = 'Invalid env output. End. '
-                return (prompt, 0.5, True, info)
+                return (prompt, 0, True, info)
             self._move_to_next_player() # 这一轮结束，确定下一个玩家ID信息，相当于下标+1
             self._check_and_transition_phase() # check游戏阶段
 
@@ -156,12 +159,13 @@ class UndercoverEnv(MultiGameEnv):
             info = {'action_is_effective': False, 'action_is_valid': True, 'success': success}
             done = True
             prompt = self.render()
-        elif self.train_id not in self.alive_players:
-            # trainer死了，游戏结束
-            prompt = 'You are eliminated. Game over.'
-            done = True
-            reward = 0.5
-            info = {'action_is_effective': False, 'action_is_valid': True, 'success': False}
+        # elif self.train_id not in self.alive_players:
+        # 不会进入这个状态——投票之后直接查看最终结果，决定游戏是否结束
+        #     # trainer死了，游戏结束
+        #     prompt = 'Wrong voting. Game over.'
+        #     done = True
+        #     reward = 0
+        #     info = {'action_is_effective': False, 'action_is_valid': True, 'success': False}
         else:
             # 正常进行下一轮
             prompt = self.render()
@@ -188,16 +192,15 @@ class UndercoverEnv(MultiGameEnv):
         # --- Turn-specific Prompt ---
         turn_prompt = f"## Your Turn\n"
         turn_prompt += f"You are Player {player_id + 1}.\n"
-        turn_prompt += f"Your identity is: **{self.identities[player_id]}**.\n"
+        # 谁是卧底不应该告知玩家身份，删除这个prompt信息
+        # turn_prompt += f"Your identity is: **{self.identities[player_id]}**.\n"
         turn_prompt += f"Your secret word is: **{self.words[player_id]}**.\n\n"
         # 添加不同身份游戏策略提示
         if self.phase == 'description':
             turn_prompt += "Description Phase. \n"
-            if self.identities[player_id] == 'Civilian':
-                turn_prompt += "Your description must be accurate. But more importantly, it should help you find other civilians and identify the undercover. \nRemember: Your goal is to win, not just describe.\n"
-            else:
-                turn_prompt += "Your description must be plausible but vague. **Do NOT describe your word perfectly**. Try to guess the civilians' word and describe a feature that both words share. Mimic the descriptions of others to blend in. \nRemember: Your goal is to survive, not be accurate.\n"
-            turn_prompt += "Describe your word in a single sentence.\n"
+            turn_prompt += """### Additional Rules for Description (Very Important)\n- Your description MUST be clearly different from any descriptions you have given in earlier rounds.\n- Do NOT reuse similar words, sentence structures, or ideas. Avoid describing it as a "process" again.\n- Each round, pick a NEW angle of interpretation (e.g., its effect, its form, its symbolism, its usage, etc.)\n- The new description should have LOW semantic similarity with your previous descriptions.\n- Act as if you don't remember your previous answers, but you MUST ensure this answer is not similar to them.\n- Always produce a new, creative, and distinct sentence.\n- If the word has multiple meanings, assume 100% that the basic meaning is intended. Never choose the less common or technical ones."""
+            # turn_prompt += "Your description must be plausible but vague. **Do NOT describe your word perfectly**. Try to guess the other word and describe a feature that both words share.\n"
+            # turn_prompt += "Describe your word in a single sentence and do not repeat.\n"
         elif self.phase == 'vote':
             if self.identities[player_id] == 'Civilian': 
                 turn_prompt += "Vote Phase. Vote for the undercover agent. Listen for descriptions that are too vague, too specific, or contradictory. "
@@ -213,10 +216,10 @@ class UndercoverEnv(MultiGameEnv):
         prompt = f"""
 {init_prompt}
 
+{turn_prompt}
+
 ## History Conversation
 {history_str}
-
-{turn_prompt}
 """
         if self.current_player_id != self.train_id:
             prompt += "Always output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. Max response length: 200 words (tokens)."
@@ -226,15 +229,19 @@ class UndercoverEnv(MultiGameEnv):
         """Cycles to the next alive player. 
         Only change `self.current_player_id`"""
         assert self.current_player_id in self.alive_players
-        print(self.current_player_id)
+        # print(self.current_player_id)
         if self.current_player_id == self.alive_players[-1]:
             # 但如果是这样意味着一轮已经结束——是否需要设置一个结束的标志？
             self.current_player_id = self.alive_players[0]
         else:
             # 找到下一个需要访问的Player对应ID信息
-            id = self.alive_players.index(self.current_player_id)
+            try:
+                id = self.alive_players.index(self.current_player_id)
+            except ValueError:
+                print('[ERROR]Current Player not in alive_player list! DEBUG!!!')
+                exit(1)
             self.current_player_id = self.alive_players[id + 1]
-        print(self.current_player_id)
+        # print(self.current_player_id)
 
     def _process_action(self, player_id: int, action: str) -> bool:
         """
@@ -256,6 +263,7 @@ class UndercoverEnv(MultiGameEnv):
                 # -1，和真实的index相对应
                 voted_id = voted_player_num - 1
                 if voted_id in self.alive_players and voted_id != player_id:
+                    # 不能投票给自己
                     self.votes.append(voted_id)
                     return True
             return False
@@ -272,7 +280,7 @@ class UndercoverEnv(MultiGameEnv):
         if match is None:
             return False
         action = match.group(1).strip()
-        print(f'extract action: {action}')
+        # print(f'extract action: {action}')
         if self.phase == 'description':
             self.conversation[player_id].append(action.strip())
             return True
@@ -291,23 +299,26 @@ class UndercoverEnv(MultiGameEnv):
     def _check_and_transition_phase(self):
         """Checks if a phase is over and transitions to the next if needed."""
         # 在current_player_id更新后调用——所以只需要确定模型是否完成description或者vote过程
-        if self.phase == 'description' and self.current_player_id == self.alive_players[0]:
-            self.phase = 'vote'
-            print('change phase to vote')
-            # 不再需要进行ID的更新
-            # self.current_player_id = self.alive_players[0] # Start voting from the first alive player
-        elif self.phase == 'vote' and self.current_player_id == self.alive_players[0]:
+        is_start_of_circle = (self.current_player_id == self.alive_players[0])
+        
+        if self.phase == 'description' and is_start_of_circle:
+            self.round += 1  # 增加发言轮次计数
+            if self.round >= 2:  # 两轮发言后进入投票阶段
+                self.phase = 'vote'
+                # print('change phase to vote after 2 description rounds')
+            # 否则继续下一轮发言，不改变phase
+        elif self.phase == 'vote' and is_start_of_circle:
+            # 所有人都完成投票了
             self._tally_votes_and_eliminate()
             self._check_game_over()
-            if not self.game_over:
-                self._start_new_round()
+            # 投票后游戏结束，不再开始新一轮
 
     def _tally_votes_and_eliminate(self):
         """Counts votes, eliminates a player, and records it."""
         if len(self.votes) == 0: 
             print('wrong process! DEBUG!!!')
             exit(1)
-        print('vote info:', self.votes)
+        # print('vote info:', self.votes)
         vote_counts = {p_id: 0 for p_id in self.alive_players}
         for voted_id in self.votes:
             if voted_id in vote_counts:
@@ -316,7 +327,6 @@ class UndercoverEnv(MultiGameEnv):
                 # vote has been checked in `process_action` function
                 print('error! vote not valid! DEBUG!')
                 exit(1)
-        
         # print('vote counts:', vote_counts)
         max_votes = max([k for k in vote_counts.values()])
         eliminated_candidates = [e for e in vote_counts.keys() 
@@ -326,38 +336,26 @@ class UndercoverEnv(MultiGameEnv):
         eliminated_id = random.choice(eliminated_candidates)
         # print('eliminated id:', eliminated_id)
         self.alive_players.remove(eliminated_id)
-        # eliminated_identity = self.identities[eliminated_id]
-        # 返回被票出的人的身份 —— not used
-        # return eliminated_identity
 
     def _check_game_over(self):
         """Checks for win/loss conditions and sets game_over flag."""
-        # undercover_alive = any(self.identities[p_id] == "Undercover" for p_id in self.alive_players)
+        # 因为是最后调用，所以可以直接设定游戏状态为结束状态
         undercover_alive = (self.undercover_id in self.alive_players)
+        # print('undercover_id:', self.undercover_id)
         if not undercover_alive:
             self.game_over = True
             self.winner = "Civilian"
             print('Game ends. Civilian win.')
-        elif len(self.alive_players) <= 3:
-            # 两轮投票卧底都没有出局，卧底胜利
+        else:
             self.game_over = True
             self.winner = "Undercover"
             print('Game ends. Undercover win.')
-        else:
-            self.game_over = False
-            self.winner = None
-            print('Not end. Continue.')
 
     def _start_new_round(self):
         """Resets state for a new round of descriptions and votes."""
-        self.round += 1
-        # start from description phase
-        self.phase = 'description'
-        print('change phase to description and delete votes history')
-        self.votes = []
-        # The starting player for the new round is the first one in the alive list
-        self.current_player_id = self.alive_players[0]
-        # Do not need to change player_id -- handle in `_check_and_transition_phase``
+        # 在新流程中不再需要这个方法，因为游戏在投票后直接结束
+        # 保留此方法以避免可能的调用错误
+        pass
 
     def _history_render(self) -> str:
         """"Generate description for history conversation information."""
@@ -388,7 +386,7 @@ class UndercoverEnv(MultiGameEnv):
             matches = re.findall(pattern, info_str)
             for num, info in matches:
                 self.conversation[int(num) - 1] = [info.strip()]
-            print(self.conversation)
+            # print(self.conversation)
             # TODO：担心调用API会有错误输出，不知道这么搞会不会容易出BUG——记得测试！
         return info_str
     
@@ -405,7 +403,7 @@ if __name__ == "__main__":
     # print(env.reset(seed=42))
     r = 1
     while r:
-        env.reset(seed=random.randint(0, 1000))
+        env.reset(seed=random.randint(0, 100))
         done = False
         while not done:
             print(env.render())
@@ -418,3 +416,5 @@ if __name__ == "__main__":
             obs, reward, done, info = env.step(keyboard)
             for o in [reward, done, info]:
                 print(o)
+        print('round over. ')
+        time.sleep(5)
