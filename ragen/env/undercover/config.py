@@ -16,11 +16,11 @@ class UndercoverEnvConfig:
             #  {'model_name': 'google/gemini-2.5-flash'},{'model_name': 'google/gemini-2.5-flash'},]
             # [{"model_name": "x-ai/grok-4-fast"}, {"model_name": "x-ai/grok-4-fast"},
             #  {"model_name": "x-ai/grok-4-fast"}, {"model_name": "x-ai/grok-4-fast"},]
-            [{'model_name': 'Qwen2.5-14B-Instruct', 'port': '1414'},
-             {'model_name': 'Qwen2.5-14B-Instruct', 'port': '1414'},
-             {'model_name': 'Qwen2.5-14B-Instruct', 'port': '1414'}]
+            [{'model_name': 'Qwen3-14B', 'port': '1414'},
+             {'model_name': 'Qwen3-14B', 'port': '1414'},
+             {'model_name': 'Qwen3-14B', 'port': '1414'}]
     )
-    model_path: str = '/root/autodl-tmp'
+    model_path: str = '/root/autodl-fs'
     env_max_tokens: int = 600
     simplify_prompt: str = "\nSummarize the conversation history of each player in format: `Player x: [conversation]\n`. Keep the summary ** under 100 words. **"
     init_prompts: List[str] = field(

@@ -35,9 +35,12 @@ custom_envs:
     env_config:  # 这里可以指定env_config中的config文件信息 先默认是和本地QWEN8B对战，后续看怎么改self-play
       player_num: 4
       player_info:  # 4个玩家、3个对手
-        - model_name: 'gemini-2.5-flash-nothinking'
-        - model_name: 'gemini-2.5-flash-nothinking'
-        - model_name: 'gemini-2.5-flash-nothinking'
+        - model_name: 'Qwen3-14B'
+          port: '1414'
+        - model_name: 'Qwen3-14B'
+          port: '1414'
+        - model_name: 'Qwen3-14B'
+          port: '1414'
       temperature: 0.5
       seed: 123
       max_env_try: 3

@@ -240,7 +240,7 @@ class EnvPlayer():
                     'type': 'qwen',
                     'client': client,
                     'model': f"{model_path}/{model_name}",
-                    'request_timeout': 2
+                    'request_timeout': 5
                 })
             elif '/' in model_name:
                 self.players.append({
@@ -304,13 +304,17 @@ class EnvPlayer():
                     model = player['model']
 
                 # 请求模型
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=message0,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    timeout=timeout, # <--- 设置超时
-                )
+                if 'Qwen3-14B' in model:
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=message0,
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens,
+                        extra_body={
+                            "chat_template_kwargs": {"enable_thinking": False},
+                        },
+                        timeout=timeout, # <--- 设置超时
+                    )
                 
                 # 成功，返回结果
                 return response.choices[0].message.content
