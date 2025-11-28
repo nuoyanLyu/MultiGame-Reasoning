@@ -315,6 +315,14 @@ class EnvPlayer():
                         },
                         timeout=timeout, # <--- 设置超时
                     )
+                else:
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=message0,
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens,
+                        timeout=timeout, # <--- 设置超时
+                    )
                 
                 # 成功，返回结果
                 return response.choices[0].message.content

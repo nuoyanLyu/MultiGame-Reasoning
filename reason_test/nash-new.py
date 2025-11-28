@@ -1,5 +1,4 @@
 # NashEnv evaluation script using vLLM-served model
-# Reference: tictactoe_ref.py (mentor's version)
 import sys
 import os
 from ragen.env.nash_new.env import NashNew

@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # test new model
-MODEL_PATH="nm-comp-kl"
+MODEL_PATH="undercover"
 
-for i in {300..400..50}
+for i in {50..100..50}
 do
-    MODEL_NAME="comp${i}"
+    MODEL_NAME="undercover${i}"
     echo "===== Testing model: $MODEL_NAME ====="
     # game test
-    python reason_test/nash-new.py --model_path $MODEL_PATH --model_name $MODEL_NAME
-    python reason_test/tictactoe.py --model_path $MODEL_PATH --model_name $MODEL_NAME
-
+    # python reason_test/nash-new.py --model_path $MODEL_PATH --model_name $MODEL_NAME
+    # python reason_test/tictactoe.py --model_path $MODEL_PATH --model_name $MODEL_NAME
+    python reason_test/undercover.py --model_path $MODEL_PATH --model_name $MODEL_NAME
     # mmlu test
     python reason_test/mmlu_dl.py --model_path $MODEL_PATH --model_name $MODEL_NAME
     python reason_test/mmlu_pro_dl.py --model_path $MODEL_PATH --model_name $MODEL_NAME
