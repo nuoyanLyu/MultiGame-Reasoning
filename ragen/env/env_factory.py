@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from .base import EnvPlayer
+from .base import EnvPlayer, SuccessRate
 
 # 全局EnvPlayer实例缓存
 _env_player_cache = {}
@@ -79,3 +79,18 @@ def create_env_player_for_config(config) -> EnvPlayer:
         max_retries=getattr(config, 'max_retries', 3),
         system_prompt=getattr(config, 'system_prompt', '')
     )
+
+# 同理，创造字典管理多个环境成功率计算方案
+_env_success_info = {}
+
+
+def create_success_info(env_name, k=100):
+    if env_name not in _env_success_info:
+        _env_success_info[env_name] = SuccessRate(k=k)
+        print('create success_info dictionary for ENV', env_name)
+    return _env_success_info[env_name]
+
+
+def clean_success_info(env_name):
+    if env_name in _env_success_info:
+        del _env_success_info[env_name]

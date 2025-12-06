@@ -20,7 +20,9 @@ custom_envs:
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config:  # 这里可以指定env_config中的config文件信息 先默认是和本地QWEN8B对战，后续看怎么改self-play
       player_info: 
-        - model_name: 'google/gemini-2.5-flash'  # 换成flash，质量更高
+        # - model_name: 'google/gemini-2.5-flash'  # 换成flash，质量更高
+        - model_name: 'Qwen3-14B'
+          port: '1414'
         # - model_name: 'Qwen3-8B-Base'
         #   port: 3833
       temperature: 0.5
@@ -101,22 +103,24 @@ custom_envs:
       data_path: "/root/autodl-tmp"  # "/data1/lvnuoyan"
       data_files: "merge_mmlu_math"
       mode: "test"
-  NashMixTest:
-    env_type: compose
+  MathNashTest:
+    env_type: compose_new
     max_actions_per_traj: 2 # used in environment state manager to control the actual max actions executed per trajectory
     env_instruction: ""
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of MathConfig
-      base_env_list: ["nash_new", "mix_data"]
+      base_env_list: ["math_lv3to5", "nash_new"]
       mode: "test"
-  NashMixTrain:
-    env_type: compose
+      reward_improve: False
+  MathNashTrain:
+    env_type: compose_new
     max_actions_per_traj: 2 # used in environment state manager to control the actual max actions executed per trajectory
     env_instruction: ""
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of MathConfig
-      base_env_list: ["nash_new", "mix_data"]
+      base_env_list: ["math_lv3to5", "nash_new"]
       mode: "train"
+      reward_improve: False
   MixNashTrain:
     env_type: compose
     max_actions_per_traj: 2 # used in environment state manager to control the actual max actions executed per trajectory

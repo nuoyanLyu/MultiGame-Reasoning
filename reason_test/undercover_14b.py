@@ -1,30 +1,32 @@
-# 改动之前的tictactoe测试代码，改为使用python的VLLM load训练模型、并尝试初始化对手的config（是否有可能）
-from ragen.env.tictactoe.config import TicTacToeEnvConfig
-from ragen.env.tictactoe.env import TicTacToeEnv
+# 参考tictactoe测试代码生成undercover测试代码
+from ragen.env.undercover.config import UndercoverEnvConfig
+from ragen.env.undercover.env import UndercoverEnv
 # 根据infer得到的结果，运行函数提取模型生成的信息
 import json
-from openai import OpenAI
 import re
 import time
+import datasets
 from tqdm import trange
 import random
-import os
+import os, logging
 from collections import Counter
-from vllm import LLM, SamplingParams
+from openai import OpenAI
 from verl.utils import hf_tokenizer
 import argparse
 
 root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
 test_round = 100
-config = TicTacToeEnvConfig(
+config = UndercoverEnvConfig(
     max_env_try=1,  # 修改最大尝试次数
     player_info=[
+        # 固定对手gemini-2.5-flash
+        {'model_name': 'google/gemini-2.5-flash'},
+        {'model_name': 'google/gemini-2.5-flash'},
         {'model_name': 'google/gemini-2.5-flash'}
     ]
 )
-
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, default="nash-new")
+parser.add_argument("--model_path", type=str, default="undercover")
 parser.add_argument("--model_name", type=str, default="Qwen3-14B")
 args = parser.parse_args()
 model_path = args.model_path
@@ -64,21 +66,23 @@ def reformat_prompt(prompt0):
     prompt = tokenizer.apply_chat_template(message, add_generation_prompt=True, tokenize=False)
     return prompt
 
+
 if __name__ == '__main__':
-    env = TicTacToeEnv(config=config)
+    env = UndercoverEnv(config=config)
     info_list = []
     for t in trange(100):
-        env.reset0(seed=random.randint(1, 1000))
+        env.reset(seed=random.randint(1, 1000))
         # 游戏进行
         prompt = env.render()
         while True:
             # print(prompt + prompt0)
             # 得到trainer的行动
             prompt = reformat_prompt(prompt)
-            output = call_model(prompt)
-            print(output)
+            print(prompt)
+            outputs = call_model(prompt)
+            print(outputs)
             pattern = r'<answer>(.*?)</answer>'
-            match = re.search(pattern, output, re.DOTALL)
+            match = re.search(pattern, outputs, re.DOTALL)
             if not match:
                 info_list.append('trainer-invalid-format')
                 print('trainer-invalid-format')
@@ -86,41 +90,35 @@ if __name__ == '__main__':
             action = match.group(1)
             # 更新环境信息，得到对手操作以及下一步信息
             prompt, reward, done, info = env.step(action)
+            # print(reward, done, info)
             # 检查游戏是否结束，更改了invalid——这里设置invalid为游戏失败、直接结束
-            if "Invalid action:" in prompt:
+            if "Invalid action" in prompt:
                 info_list.append('trainer-invalid-output')
                 print('trainer-invalid-output')
                 break
             if done:
                 # 如果结束检查游戏状态，添加对应的状态信息
-                if "Congratulations!" in prompt:
-                    info_list.append('success')
-                    print('success')
-                elif "Draw!" in prompt:
-                    info_list.append('draw')
-                    print('draw')
+                # if "Congratulations!" in prompt:
+                #     info_list.append('success')
+                #     print('success')
                 # invalid: env_player不符合指令遵循
                 # wrong：env_player的动作不在available_action中
-                elif "Your opponent made a mistake" in prompt:
+                if "env invalid output" in prompt:
                     info_list.append('env_player-invalid-output')
                     print('env_player-invalid-output')
-                elif "Your opponent action is wrong" in prompt:
-                    info_list.append('env_player-wrong-output')
-                    print('env_player-wrong-output')
-                elif "Failed! " in prompt:
-                    info_list.append('fail')
-                    print('fail')
+                else:
+                    result = 'success' if reward else 'fail'
+                    info_list.append(result)
+                    print(result)
                 break
     # 统计info_list中出现的不同情况的次数并计算对应的比例
     counter = Counter(info_list)
     total = len(info_list)
     # 存储结果文件
-    with open('reason_test/tictactoe-log.txt', 'a') as f:
+    with open('reason_test/undercover-log.txt', 'a') as f:
         f.write(f"\n=== Model: {model_name} ===\n")
-        f.write("tictactoe test set\n")
+        f.write(f"undercover v.s. {config.player_info[0]['model_name']}\n")
+        f.write("undercover test set\n")
         for key, value in counter.items():
-            f.write(f"{key}: {value / total:.2%}\n")
-        f.write(f"tictactoe v.s. {config.player_info[0]['model_name']}\n")
-        f.write(f"model: {model_name}\n\n")
- 
+            f.write(f"{key}: {value / total:.2%}\n") 
 

@@ -230,7 +230,7 @@ class EnvPlayer():
                     'model': 'deepseek-chat',
                     'request_timeout': 15
                 })
-            elif 'game' in model_name or 'Qwen' in model_name:
+            elif 'game' in model_name or 'Qwen' in model_name or '50' in model_name or '00' in model_name:
                 port = player_info[i]['port']
                 client = OpenAI(
                     api_key="EMPTY",  # vLLM 无需认证密钥
@@ -342,6 +342,23 @@ class EnvPlayer():
         print(f"❌ 玩家 {player_id} ({player['type']}) 在 {self.max_retries} 次尝试后仍失败。")
         return ''
         # exit(1)
+
+
+class SuccessRate():
+    def __init__(self, k, alpha=1, beta=1):
+        self.success_list = []
+        self.k = k
+        self.alpha = alpha
+        self.beta = beta
+    
+    def update(self, success):
+        self.success_list.append(success)
+        if len(self.success_list) > self.k:
+            self.success_list.pop(0)
+        print(self.success_list)
+        # reward改为beta分布，s + alpha / (n + alpha + beta)
+        return (sum(self.success_list) + self.alpha) / (len(self.success_list) + self.alpha + self.beta) 
+
 
 class MultiGameEnv(ABC):
     """

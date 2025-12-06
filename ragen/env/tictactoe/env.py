@@ -5,7 +5,7 @@ import re
 from openai import NotFoundError
 
 from ragen.env.base import BaseDiscreteActionEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
-from ragen.env.env_player_factory import create_env_player_for_config
+from ragen.env.env_factory import create_env_player_for_config
 from .config import TicTacToeEnvConfig
 import gymnasium as gym
 import random
@@ -201,6 +201,7 @@ The available actions are: {actions}.
             info['action_is_effective'] = False
             info['action_is_valid'] = False
             info['success'] = False
+            info['reward'] = -0.1
             prompt0 = error_prompt + self.render()
             # invalid action，动作reward同样设置为format_penalty -0.1
             return (prompt0, -0.1, False, info)
@@ -225,6 +226,7 @@ The available actions are: {actions}.
             info['action_is_effective'] = True
             info['action_is_valid'] = True
             info['success'] = True
+            info['reward'] = reward
             self.reset()
             return success_prompt, reward, done, info
         # 判断是否为平局
@@ -235,6 +237,7 @@ The available actions are: {actions}.
             info['action_is_effective'] = True
             info['action_is_valid'] = True
             info['success'] = False
+            info['reward'] = reward
             self.reset()
             return draw_prompt, reward, done, info
         
@@ -264,7 +267,7 @@ The available actions are: {actions}.
             # TODO:对手失误，算作agent胜利 OR 平局？感觉都不太合理，给一个中间的奖励？
             # 尽量不要出现这个情况，理论上应该是一直等到环境agent有动作才好——
             # 甚至应该随机选一个作为动作才更加合理
-            reward = 0.5
+            reward = 0
             done = True
             if action_in:
                 draw_prompt = 'Your opponent action is wrong! No winner.'
@@ -274,6 +277,7 @@ The available actions are: {actions}.
             info['action_is_valid'] = True
             # 不算成功吧，要不然会混淆模型训练结果
             info['success'] = False
+            info['reward'] = reward
             self.reset()
             return draw_prompt, reward, done, info
         # 对手正确，更新环境
@@ -297,6 +301,7 @@ The available actions are: {actions}.
             info['action_is_effective'] = True
             info['action_is_valid'] = True
             info['success'] = False
+            info['reward'] = reward
             self.reset()
             return fail_prompt, reward, done, info
         # 判断是否为平局
@@ -307,6 +312,7 @@ The available actions are: {actions}.
             info['action_is_effective'] = True
             info['action_is_valid'] = True
             info['success'] = False
+            info['reward'] = reward
             self.reset()
             return draw_prompt, reward, done, info
         
@@ -318,6 +324,7 @@ The available actions are: {actions}.
         info['action_is_effective'] = True
         info['action_is_valid'] = True
         info['success'] = False
+        info['reward'] = 0
         return train_prompt, reward, done, info
 
     # 需要说明一下这里的四子棋的条件horizontal、vertical、diagonal具体的例子
@@ -362,6 +369,7 @@ The available actions are: {actions}.
     
     def _parse_action_env(self, llm_output: str, strict=False) -> Optional[Tuple]:
         """Helper to extract action from env's raw output."""
+        # print(llm_output)
         pattern = r"<answer>\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*</answer>"
         match = re.search(pattern, llm_output)
         if match:
@@ -513,7 +521,7 @@ if __name__ == "__main__":
         os.environ.pop(key, None)
     config = TicTacToeEnvConfig()
     env = TicTacToeEnv(config)
-    # print(env.reset(seed=42))
+    env.reset(seed=10)
     done = False
     while not done:
         print(env.render())
@@ -523,5 +531,5 @@ if __name__ == "__main__":
         # action = int(keyboard)
         # assert action in env.ACTION_LOOKUP, f"Invalid action: {action}"
         obs, reward, done, info = env.step(keyboard)
-        for o in [obs, reward, done, info]:
+        for o in [reward, done, info]:
             print(o)
