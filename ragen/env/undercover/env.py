@@ -9,7 +9,7 @@ import time
 import json
 
 from ragen.env.base import BaseLanguageBasedEnv, EnvPlayer, seed_everything, timed, MultiGameEnv, Simplifier
-from ragen.env.env_player_factory import create_env_player_for_config
+from ragen.env.env_factory import create_env_player_for_config
 from .config import UndercoverEnvConfig
 
 

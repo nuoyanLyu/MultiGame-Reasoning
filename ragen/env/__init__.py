@@ -30,6 +30,8 @@ from .compose.env import ComposeEnv
 from .compose.config import ComposeConfig
 from .mmlu.env import MMLUEnv
 from .mmlu.config import MMLUEnvConfig
+from .compose_new.env import ComposeNewEnv
+from .compose_new.config import ComposeNewConfig
 
 
 
@@ -50,6 +52,7 @@ REGISTERED_ENVS = {
     'undercover': UndercoverEnv,
     'compose': ComposeEnv,
     'mmlu': MMLUEnv,
+    'compose_new': ComposeNewEnv,
 }
 
 REGISTERED_ENV_CONFIGS = {
@@ -69,6 +72,7 @@ REGISTERED_ENV_CONFIGS = {
     'undercover': UndercoverEnvConfig,
     'compose': ComposeConfig,
     'mmlu': MMLUEnvConfig,
+    'compose_new': ComposeNewConfig,
 }
 
 try:

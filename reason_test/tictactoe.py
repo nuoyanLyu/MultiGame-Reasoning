@@ -5,17 +5,15 @@ from ragen.env.tictactoe.env import TicTacToeEnv
 import json
 import re
 import time
-import datasets
 from tqdm import trange
 import random
-from math_verify import parse, verify
-import os, logging
+import os
 from collections import Counter
 from vllm import LLM, SamplingParams
 from verl.utils import hf_tokenizer
 import argparse
 
-root_path = '/root/autodl-tmp'  # '/data1/lvnuoyan' 
+root_path = '/root/autodl-fs'  # '/data1/lvnuoyan' 
 test_round = 100
 config = TicTacToeEnvConfig(
     max_env_try=1,  # 修改最大尝试次数
@@ -25,7 +23,7 @@ config = TicTacToeEnvConfig(
 )
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_path", type=str, default="nash-new")
-parser.add_argument("--model_name", type=str, default="nash50")
+parser.add_argument("--model_name", type=str, default="Qwen3-14B")
 args = parser.parse_args()
 model_path = args.model_path
 model_name = args.model_name

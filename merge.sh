@@ -1,6 +1,6 @@
 #!/bin/bash
-ORI_FILE="nash-math"
-TAR_FILE="nm"
+ORI_FILE="math-nash-comp"
+TAR_FILE="mnc"
 HF_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
 
 for i in {50..200..50}
