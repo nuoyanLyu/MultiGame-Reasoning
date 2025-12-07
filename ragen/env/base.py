@@ -355,7 +355,6 @@ class SuccessRate():
         self.success_list.append(success)
         if len(self.success_list) > self.k:
             self.success_list.pop(0)
-        print(self.success_list)
         # reward改为beta分布，s + alpha / (n + alpha + beta)
         return (sum(self.success_list) + self.alpha) / (len(self.success_list) + self.alpha + self.beta) 
 

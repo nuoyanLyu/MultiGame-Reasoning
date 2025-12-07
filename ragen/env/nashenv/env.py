@@ -65,32 +65,11 @@ class NashEnv(BaseLanguageBasedEnv, gym.Env):
         return self.last_prompt
 
     def step(self, action: str) -> Tuple[str, int, bool, Dict[str, Any]]:
-        """根据 nashpy计算NE给reward"""
+        # 测试是否reward全部相同会导致梯度nan 
         self.history.append(action)
-        is_valid = action in self.valid_actions
-        # print(type(action), self.valid_actions)
-        if not is_valid:
-            info = dict(
-                action_is_valid=False,
-                action_is_effective=False,
-                success=False,
-            )
-            self._done = True
-            return self.last_prompt, 0, True, info
-        game = nash.Game(np.array(self.A), np.array(self.B))
-        NE = self._pure_nash_equilibria()  # [(row, col), ...]
-        action = int(action)
-        idx = action - 1
         success = False
-        if self.role == "P1":
-            success = any(r == idx for (r, c) in NE)
-        else:  # P2
-            success = any(c == idx for (r, c) in NE)
-
         reward = 1 if success else 0
-
         self._done = True
-
         info: Dict[str, Any] = {
             "action_is_valid": True,
             "action_is_effective": success,

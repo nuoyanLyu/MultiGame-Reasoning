@@ -88,7 +88,6 @@ class ComposeNewEnv(BaseLanguageBasedEnv, gym.Env):
         self.sub_rewards.append(reward)
         # 计算总体的reward以及info等信息
         reward = sum(self.sub_rewards) / len(self.sub_rewards)
-        print(self.sub_rewards)
         # TODO：验证是否可以在所有步骤全结束之后再记录而不是每一次都返回？
         # info['success_rate'] = success_rate
         prompt = self.render()

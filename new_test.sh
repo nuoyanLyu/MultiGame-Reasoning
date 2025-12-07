@@ -3,7 +3,7 @@
 # test new model
 MODEL_PATH="math-nash-comp"
 
-for i in {50..200..50}
+for i in {250..300..50}
 do
     MODEL_NAME="mnc${i}"
     echo "===== Testing model: $MODEL_NAME ====="

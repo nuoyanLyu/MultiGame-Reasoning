@@ -3,7 +3,7 @@ ORI_FILE="math-nash-comp"
 TAR_FILE="mnc"
 HF_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
 
-for i in {50..200..50}
+for i in {200..300..50}
 do
     ORI_PATH="/root/autodl-tmp/${ORI_FILE}/global_step_${i}/actor"
     TARGET_PATH="/root/autodl-tmp/${ORI_FILE}/${TAR_FILE}${i}"
