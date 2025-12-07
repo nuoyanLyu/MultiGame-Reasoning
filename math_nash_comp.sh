@@ -7,7 +7,7 @@ USE_BASE="algorithm.kl_ctrl.kl_coef=0.001 actor_rollout_ref.actor.kl_loss_coef=0
 
 LOCAL_PATH="/root/autodl-tmp/math-nash-comp"
 LOG_DIR="/root/RAGEN/logs/math-nash-comp"
-MODEL_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
+MODEL_PATH="/root/autodl-tmp/math-nash-comp/mnc200"
 mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 
 # 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
