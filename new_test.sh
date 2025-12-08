@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # test new model
-MODEL_PATH="math-nash-comp"
+MODEL_PATH="math-nash-update"
 
-for i in {250..300..50}
+for i in {50..300..50}
 do
-    MODEL_NAME="mnc${i}"
+    MODEL_NAME="mnu${i}"
     echo "===== Testing model: $MODEL_NAME ====="
     # game test
     python reason_test/nash-new.py --model_path $MODEL_PATH --model_name $MODEL_NAME
