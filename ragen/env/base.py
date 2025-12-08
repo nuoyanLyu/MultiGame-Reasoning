@@ -350,13 +350,21 @@ class SuccessRate():
         self.k = k
         self.alpha = alpha
         self.beta = beta
+        self.success_rate = None
     
     def update(self, success):
         self.success_list.append(success)
         if len(self.success_list) > self.k:
             self.success_list.pop(0)
         # reward改为beta分布，s + alpha / (n + alpha + beta)
-        return (sum(self.success_list) + self.alpha) / (len(self.success_list) + self.alpha + self.beta) 
+        return self.calcu()
+    
+    def calcu(self):
+        self.success_rate = (sum(self.success_list) + self.alpha) / (len(self.success_list) + self.alpha + self.beta)
+        return self.success_rate
+
+    def get(self):
+        return self.success_rate
 
 
 class MultiGameEnv(ABC):

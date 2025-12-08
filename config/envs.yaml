@@ -121,14 +121,15 @@ custom_envs:
       base_env_list: ["math_lv3to5", "nash_new"]
       mode: "train"
       reward_improve: False
-  MixNashTrain:
-    env_type: compose
+  MathNashUpdate:
+    env_type: compose_new
     max_actions_per_traj: 2 # used in environment state manager to control the actual max actions executed per trajectory
     env_instruction: ""
     max_tokens: 200 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of MathConfig
-      base_env_list: ["mix_data", "nash_new"]
+      base_env_list: ["math_lv3to5", "nash_new"]
       mode: "train"
+      reward_improve: True
   # NashMixTrain:
   #   env_type: nash_mix
   #   max_actions_per_traj: 1 # used in environment state manager to control the actual max actions executed per trajectory

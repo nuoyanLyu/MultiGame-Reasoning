@@ -87,9 +87,9 @@ class ComposeNewEnv(BaseLanguageBasedEnv, gym.Env):
             reward = 1 - success_rate
         self.sub_rewards.append(reward)
         # 计算总体的reward以及info等信息
+        # 这个地方的设计可能不靠谱——都对应该设置为1，只有一个对才应该是一半的奖励
+        # 求平均值对两个都作对的奖励可能不够？整体reward都偏小了
         reward = sum(self.sub_rewards) / len(self.sub_rewards)
-        # TODO：验证是否可以在所有步骤全结束之后再记录而不是每一次都返回？
-        # info['success_rate'] = success_rate
         prompt = self.render()
         done = True
         if False not in self.sub_success:
@@ -101,6 +101,11 @@ class ComposeNewEnv(BaseLanguageBasedEnv, gym.Env):
             action_is_effective=True,
             success=success,
         )
+        # TODO：验证是否可以在所有步骤全结束之后再记录而不是每一次都返回？
+        if self.reward_improve:
+            # 记录任务成功率方便查看模型情况
+            for i in range(len(self.env_names)):
+                info[f'{self.env_names[i]}_success_rate'] = self.env_success_info[i].get()
         return prompt, reward, done, info
 
     def close(self):

@@ -20,8 +20,6 @@ from .mix_data.env import MixEnv
 from .mix_data.config import MixEnvConfig
 from .nashenv.env import NashEnv
 from .nashenv.config import NashEnvConfig
-from .nash_mix.env import NashMixEnv
-from .nash_mix.config import NashMixEnvConfig
 from .nash_new.env import NashNew
 from .nash_new.env import NashNewConfig
 from .undercover.env import UndercoverEnv
@@ -48,7 +46,6 @@ REGISTERED_ENVS = {
     'mix_data': MixEnv,
     'nashenv': NashEnv,
     'nash_new': NashNew,
-    'nash_mix': NashMixEnv,
     'undercover': UndercoverEnv,
     'compose': ComposeEnv,
     'mmlu': MMLUEnv,
@@ -68,7 +65,6 @@ REGISTERED_ENV_CONFIGS = {
     'mix_data': MixEnvConfig,
     'nashenv': NashEnvConfig,
     'nash_new': NashNewConfig,
-    'nash_mix': NashMixEnvConfig,
     'undercover': UndercoverEnvConfig,
     'compose': ComposeConfig,
     'mmlu': MMLUEnvConfig,
