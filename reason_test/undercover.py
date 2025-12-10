@@ -20,9 +20,9 @@ config = UndercoverEnvConfig(
     max_env_try=1,  # 修改最大尝试次数
     player_info=[
         # 固定对手gemini-2.5-flash
-        {'model_name': 'google/gemini-2.5-flash'},
-        {'model_name': 'google/gemini-2.5-flash'},
-        {'model_name': 'google/gemini-2.5-flash'}
+        {'model_name': 'gemini-2.5-flash-nothinking'},
+        {'model_name': 'gemini-2.5-flash-nothinking'},
+        {'model_name': 'gemini-2.5-flash-nothinking'}
     ]
 )
 parser = argparse.ArgumentParser()
@@ -76,10 +76,10 @@ if __name__ == '__main__':
             # print(prompt + prompt0)
             # 得到trainer的行动
             prompt = reformat_prompt(prompt)
-            print(prompt)
+            # print(prompt)
             outputs = llm.generate([prompt], sampling_params)
             output = outputs[0].outputs[0].text
-            print(output)
+            # print(output)
             pattern = r'.*<think>(.*?)</think>\s*<answer>(.*?)</answer>$'
             match = re.match(pattern, output, re.DOTALL)
             if not match:

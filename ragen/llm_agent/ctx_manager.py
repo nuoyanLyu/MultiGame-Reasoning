@@ -486,7 +486,6 @@ class ContextManager:
                     if key not in metrics:
                         metrics[key] = []
                     metrics[key].append(value)
-            print(metrics)
             # 这个地方对相同env的metric都计算了平均值——比如每个env有16个group，每个group有16个，
             # 返回的是同一个group的metric，而后再对这16个求平均值
             mean_metrics = {

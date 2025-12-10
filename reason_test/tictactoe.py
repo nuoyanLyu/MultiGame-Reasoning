@@ -18,7 +18,7 @@ test_round = 100
 config = TicTacToeEnvConfig(
     max_env_try=1,  # 修改最大尝试次数
     player_info=[
-        {'model_name': 'google/gemini-2.5-flash'}
+        {'model_name': 'gemini-2.5-flash-nothinking'}
     ]
 )
 parser = argparse.ArgumentParser()

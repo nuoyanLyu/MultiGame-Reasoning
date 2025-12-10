@@ -74,7 +74,7 @@ def create_env_player_for_config(config) -> EnvPlayer:
         player_num=config.player_num,
         player_info=config.player_info,
         temperature=getattr(config, 'temperature', 0.5),
-        model_path=getattr(config, 'model_path', "/root/autodl-tmp"),
+        model_path=getattr(config, 'model_path', "/root/autodl-fs"),
         max_tokens=getattr(config, 'env_max_tokens', 200),
         max_retries=getattr(config, 'max_retries', 3),
         system_prompt=getattr(config, 'system_prompt', '')
@@ -84,9 +84,9 @@ def create_env_player_for_config(config) -> EnvPlayer:
 _env_success_info = {}
 
 
-def create_success_info(env_name, k=100):
+def create_success_info(env_name):
     if env_name not in _env_success_info:
-        _env_success_info[env_name] = SuccessRate(k=k)
+        _env_success_info[env_name] = SuccessRate()
         print('create success_info dictionary for ENV', env_name)
     return _env_success_info[env_name]
 

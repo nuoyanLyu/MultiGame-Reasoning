@@ -1,9 +1,9 @@
 #!/bin/bash
-ORI_FILE="math-nash-update"
-TAR_FILE="mnu"
+ORI_FILE="mnt-mix"
+TAR_FILE="mix"
 HF_PATH="/root/autodl-tmp/Qwen2.5-1.5B-Instruct"
 
-for i in {50..300..50}
+for i in {100..150..50}
 do
     ORI_PATH="/root/autodl-tmp/${ORI_FILE}/global_step_${i}/actor"
     TARGET_PATH="/root/autodl-tmp/${ORI_FILE}/${TAR_FILE}${i}"

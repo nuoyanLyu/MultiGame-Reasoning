@@ -468,7 +468,7 @@ class RayAgentTrainer(VerlRayPPOTrainer):
             # 在这里直接 .sum(dim=-1)了，貌似并没有影响
             rm_scores = batch.batch["original_rm_scores"].sum(dim=-1).view(num_groups, group_size)
             in_group_std = rm_scores.std(dim=-1)
-            print(in_group_std)  # 看一下是否是方差引发的grad为0的情况
+            # print(in_group_std)  # 看一下是否是方差引发的grad为0的情况——应该不是这个原因，这个rollout的方差也不是计算adv的方差
             in_group_max = rm_scores.max(dim=-1).values
             in_group_mean = rm_scores.mean(dim=-1)
             if rollout_filter_ratio == 1:
