@@ -210,13 +210,11 @@ class EnvStateManager:
                         custom_metric[k] = []
                     custom_metric[k].append(float(v))
             for k, v in custom_metric.items():
-                print(k, v)
                 # TODO: Move TURN_LVL_METRICS into the environment
                 if "Webshop" not in k or ("Webshop" in k and k in TURN_LVL_METRICS):
                     # 打补丁：应该都是直接求平均值，都求和了不需要除以长度-1，要么等价要么不合理
                     env_metric[k] = np.sum(v) / len(v)
                     # env_metric[k] = np.sum(v) / (len(cache['history']) - 1) # NOTE: exclude the last observation
-                    print('env_metric', k, env_metric[k])
                 else:
                     env_metric[k] = np.sum(v)
 

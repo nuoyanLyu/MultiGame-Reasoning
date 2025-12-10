@@ -210,7 +210,7 @@ class BaseEnvConfig(ABC):
 class EnvPlayer():
     """在双人或多人玩家场景下初始化环境中的其他玩家"""
 
-    def __init__(self, num_players, player_info, system_prompt='', temperature=0.5, model_path='/root/autodl-tmp', max_tokens=200, max_retries=3) -> None:
+    def __init__(self, num_players, player_info, system_prompt='', temperature=0.5, model_path='/root/autodl-fs', max_tokens=200, max_retries=3) -> None:
         self.system_prompt = system_prompt
         self.temperature = temperature
         self.num_players = num_players
@@ -252,7 +252,7 @@ class EnvPlayer():
                 self.players.append({
                     'type': 'dmx',
                     'model': model_name,
-                    'request_timeout': 10
+                    'request_timeout': 20
                 })
 
 
@@ -345,23 +345,21 @@ class EnvPlayer():
 
 
 class SuccessRate():
-    def __init__(self, k, alpha=1, beta=1):
+    def __init__(self, k=4, alpha=1, beta=1):
         self.success_list = []
         self.k = k
         self.alpha = alpha
         self.beta = beta
-        self.success_rate = None
+        self.success_rate = 0
     
-    def update(self, success):
+    def record(self, success):
         self.success_list.append(success)
-        if len(self.success_list) > self.k:
-            self.success_list.pop(0)
-        # reward改为beta分布，s + alpha / (n + alpha + beta)
-        return self.calcu()
-    
-    def calcu(self):
-        self.success_rate = (sum(self.success_list) + self.alpha) / (len(self.success_list) + self.alpha + self.beta)
         return self.success_rate
+
+    def update(self):
+        # print(self.success_list)
+        self.success_rate = (sum(self.success_list) + self.alpha) / (len(self.success_list) + self.alpha + self.beta)
+        self.success_list = []
 
     def get(self):
         return self.success_rate
@@ -440,22 +438,13 @@ def seed_everything(seed=11):
 
 
 if __name__ == "__main__":
-    # 测试simplifier是否能够正常使用 google/gemini-2.5-flash-lite
-#     simpifier = Simplifier('google/gemini-2.5-flash')
-#     history = """
-# Player 2: 1. You can use it to make juice or pie.
-# Player 4: 1. I think a teacher once gave one to me. 2. It's a very crisp fruit, and it's a good source of fiber.
-# Player 1: 1. It's a very common fruit. 2. It's a healthy snack that you can pack for lunch. 3. I'm not going to give any more clues. It's too risky.
-# Player 3: 1. It's very sweet and you can peel it. 2. I think it's part of a very popular saying. 3. It's a classic snack, and it's a common color.
-# Player 5: 1. It's typically round and can be red or green. 2. You can find it in a lot of different seasons. 3.I'm feeling confident about who the spy is.
-
-#     """
-#     prompt = "\nSummarize the conversation history of each player in format: `Player x: [conversation]\n`. Keep the summary ** under 100 words. **"
-
-#     print(simpifier.simplify(history, prompt=prompt))
-    # 测试request_timeout设置是否合理
-    env_player = EnvPlayer(
-        num_players=2,
-        player_info=[{'model_name': 'deepseek-1-1-1'}]
-    )
-    print(env_player.act('hello', 0))
+    import random
+    Success = SuccessRate()
+    for i in range(10):
+        Success.record(random.randint(0, 1))
+    Success.update()
+    print(Success.get())
+    for i in range(10):
+        Success.record(random.randint(0, 1))
+    Success.update()
+    print(Success.get())

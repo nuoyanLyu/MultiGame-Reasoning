@@ -13,9 +13,9 @@ class TicTacToeEnvConfig:
     # TODO：后续需要修改，看看self-play需要如何设置
     player_info: List[Dict[str, Any]] = field(
         # default_factory=lambda: [{'model_name': 'deepseek'}]
-        # default_factory=lambda: [{'model_name': "google/gemini-2.5-flash"}]
-        # default_factory=lambda: [{'model_name': 'game100', 'port': '2121'}]
-        default_factory=lambda: [{'model_name': 'tq100', 'port': '100'}]
+        default_factory=lambda: [{'model_name': "gemini-2.5-flash-nothinking"}]
+        # default_factory=lambda: [{'model_name': 'Qwen3-14B', 'port': '1414'}]
+        # default_factory=lambda: [{'model_name': 'tq100', 'port': '100'}]
     )
     init_prompts: List[str] = field(
         default_factory=lambda: [
@@ -25,7 +25,7 @@ class TicTacToeEnvConfig:
             "**About the Game: Tic-Tac-Toe**\n\n*What is the main goal?*\nTo be the first to align three of your pieces (For Player 1 is 'O' and for Player 2 is 'X') in an unbroken line.\n\n*How do I win?*\nA win is achieved by creating a sequence of three of your pieces. This can be in any row, any column, or across either of the two main diagonals.\n\n*How does a turn work?*\nWhen it's your turn, select any unoccupied square on the 3x3 board ('.') to place your piece.\n\n*What if no one wins?*\nIf all nine squares are filled and no winning line has been formed, the game ends in a tie."
     ]
     )
-    model_path: str = "/root/autodl-tmp/tictactoe"  # "/data1/lvnuoyan/llm_model"
+    model_path: str = "/root/autodl-fs"  # "/data1/lvnuoyan/llm_model"
     temperature: float = 0.5
     seed: int = 123
     max_env_try: int = 3

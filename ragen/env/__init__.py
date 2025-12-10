@@ -24,8 +24,8 @@ from .nash_new.env import NashNew
 from .nash_new.env import NashNewConfig
 from .undercover.env import UndercoverEnv
 from .undercover.config import UndercoverEnvConfig
-from .compose.env import ComposeEnv
-from .compose.config import ComposeConfig
+from .compose_sample.env import ComposeSampleEnv
+from .compose_sample.config import ComposeSampleConfig
 from .mmlu.env import MMLUEnv
 from .mmlu.config import MMLUEnvConfig
 from .compose_new.env import ComposeNewEnv
@@ -47,7 +47,7 @@ REGISTERED_ENVS = {
     'nashenv': NashEnv,
     'nash_new': NashNew,
     'undercover': UndercoverEnv,
-    'compose': ComposeEnv,
+    'compose_sample': ComposeSampleEnv,
     'mmlu': MMLUEnv,
     'compose_new': ComposeNewEnv,
 }
@@ -66,7 +66,7 @@ REGISTERED_ENV_CONFIGS = {
     'nashenv': NashEnvConfig,
     'nash_new': NashNewConfig,
     'undercover': UndercoverEnvConfig,
-    'compose': ComposeConfig,
+    'compose_sample': ComposeSampleConfig,
     'mmlu': MMLUEnvConfig,
     'compose_new': ComposeNewConfig,
 }
