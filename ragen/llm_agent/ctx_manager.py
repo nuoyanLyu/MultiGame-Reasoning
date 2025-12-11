@@ -488,10 +488,15 @@ class ContextManager:
                     metrics[key].append(value)
             # 这个地方对相同env的metric都计算了平均值——比如每个env有16个group，每个group有16个，
             # 返回的是同一个group的metric，而后再对这16个求平均值
-            mean_metrics = {
-                key: np.sum(value) / self.env_nums[key.split("/")[0]]
-                for key, value in metrics.items()
-            }
+            # count字段是不需要这样计算平均值的，加上一个if-else判断
+            # key: np.sum(value) / self.env_nums[key.split("/")[0]]
+            mean_metrics = {}
+            for key, value in metrics.items():
+                if 'count' in key:
+                    mean_metrics[key] = np.sum(value)
+                else:
+                    mean_metrics[key] = np.sum(value) / self.env_nums[key.split("/")[0]]
+            
             for key, values in metrics.items():
                 if not isinstance(values, list):
                     continue

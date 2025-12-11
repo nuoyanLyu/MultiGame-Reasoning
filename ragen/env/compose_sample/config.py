@@ -25,6 +25,6 @@ class ComposeSampleConfig:
     )
     mode: str = 'train'  # train or test for math env.
     seed: int = 123
-    k: int = 2
+    k: int = 1024
     render_mode: str = 'text'
     sample_method: str = 'difficulty-square'  # random or sequential
