@@ -48,7 +48,7 @@ class UndercoverEnv(MultiGameEnv):
         self.votes = []
         self.winner = None
         # 可能需要调用API进行历史对话精简
-        self.simplifier = Simplifier('google/gemini-2.5-flash')
+        self.simplifier = Simplifier('gemini-2.5-flash-nothinking')
         self.simplify_prompt = self.config.simplify_prompt
         self.history = []
         self.game_over = False

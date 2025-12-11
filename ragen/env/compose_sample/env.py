@@ -164,6 +164,8 @@ class ComposeSampleEnv(BaseLanguageBasedEnv, gym.Env):
         # 记录任务成功率方便查看模型情况
         for i in range(len(self.sample_env_names)):
             info[f'{self.sample_env_names[i]}_success_rate'] = 1 - self.diff_list[i]
+        # 被采样到的game计数，方便查看采样情况
+        info[f'{self.sample_env_names[self.env1_id]}_count'] = 1
         return prompt, reward, done, info
 
     def close(self):

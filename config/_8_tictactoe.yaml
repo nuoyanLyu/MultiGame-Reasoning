@@ -2,7 +2,7 @@ defaults:
   - base
 
 trainer:
-  experiment_name: TicTacToe
+  experiment_name: TicTacToe8
   save_freq: 50
 
 actor_rollout_ref:
@@ -11,12 +11,15 @@ actor_rollout_ref:
 
 es_manager:
   train:
-    env_groups: 16 # 多开几个，保证多样性
+    env_groups: 8 # 和mix保持相同的setting
     # under the same group, the env config and env seed are ensured to be equal
     group_size: 16  # 16
     env_configs:
       tags: ["TicTacToe"]
-      n_groups: [16]
+      n_groups: [8]
   val:
+    env_groups: 8 # 256 -> 32
+    group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
     env_configs:
       tags: ["TicTacToe"]
+      n_groups: [8]
