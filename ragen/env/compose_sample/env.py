@@ -5,23 +5,8 @@ import nashpy as nash
 import random
 import gymnasium as gym
 from .config import ComposeSampleConfig
-from ragen.env.base import BaseLanguageBasedEnv, seed_everything, timed
+from ragen.env.base import BaseLanguageBasedEnv, seed_everything, timed, TRAIN_STEPS
 from ragen.env.env_factory import create_success_info, clean_success_info
-
-
-train_counting = {}
-
-
-def train_count(k):
-    if k not in train_counting.keys():
-        print('add train count for', k)
-        train_counting[k] = 0
-    train_counting[k] += 1
-
-def get_count(k):
-    if k not in train_counting.keys():
-        return 0
-    return train_counting[k]
 
 
 class ComposeSampleEnv(BaseLanguageBasedEnv, gym.Env):
@@ -84,12 +69,11 @@ class ComposeSampleEnv(BaseLanguageBasedEnv, gym.Env):
         elif self.sample_method == 'difficulty-square':
             # 计算每个任务的难度，为 1 - 成功率
             self.diff_list = [1 - success.get() for success in self.success_info]
-            print(self.diff_list)
             # 难度的平方设置为对应子环境被采样的概率
             p_list = [d**2 for d in self.diff_list]
             # 归一化概率
             p_list = [p / sum(p_list) for p in p_list]
-            print(p_list)
+            # print(p_list)
             # 进行采样，验证了这里就是概率值
             task_id = np.random.choice(len(self.diff_list), p=p_list)
             print('set task', task_id)
@@ -137,17 +121,19 @@ class ComposeSampleEnv(BaseLanguageBasedEnv, gym.Env):
         # 记录子任务成功率
         self.success_info[self.env1_id].record(info['success'])
         # 计数，统计是否到更新参数的阶段，如果到了预设值则更新成功率信息
-        train_count('compose')
-        if get_count('compose') % self.k == 0:
+        if sum(TRAIN_STEPS) % self.k == 0:
             for s in self.success_info:
                 s.update()
+                print('success update')
         # 计算第二个任务的reward信息
         difficulty = self.diff_list[self.env1_id] / max(self.diff_list)
+        # print('difficulty', difficulty)
         reward = difficulty * reward
         self.sub_rewards.append(reward)
         # 计算总体的reward以及info等信息
         # 这个地方的设计可能不靠谱——都对应该设置为1，只有一个对才应该是一半的奖励
         # 求平均值对两个都作对的奖励可能不够？整体reward都偏小了
+        # print('sub task rewards', self.sub_rewards)
         reward = sum(self.sub_rewards) / len(self.sub_rewards)
         prompt = self.render()
         done = True

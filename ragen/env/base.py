@@ -61,6 +61,9 @@ if not dmx_keys:
     exit(1)
 dmx_keys = ThreadSafeCycle(dmx_keys)
 
+# 设置全局变量统计训练轮次信息，agent_trainer模块可以直接进行修改
+TRAIN_STEPS = []
+
 
 class Simplifier():
     def __init__(self, model_name):

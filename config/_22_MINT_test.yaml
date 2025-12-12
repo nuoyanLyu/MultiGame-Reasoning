@@ -1,0 +1,31 @@
+defaults:
+  - base
+
+trainer:
+  experiment_name: MNT-MINT
+  save_freq: 50
+
+actor_rollout_ref:
+  rollout:
+    max_model_len: 12000
+    gpu_memory_utilization: 0.7
+    max_num_batched_tokens: 16384
+
+es_manager:  # 数值沿用原始设定，并没有缩小规模
+  format_penalty: -0.1
+  train:
+    env_groups: 8 # 12 + 4
+    # under the same group, the env config and env seed are ensured to be equal
+    group_size: 4  # 16
+    env_configs:
+      tags: ["MNT_MINT"]
+      n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+  val:
+    env_groups: 8 # 256 -> 32
+    group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
+    env_configs:
+      tags: ["MathTest", "NashNew"]  # TicTacToe
+      n_groups: [4, 4] # [256] -> [32] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+
+agent_proxy:
+  max_turn: 2 # math_turn + tictactoe_turn

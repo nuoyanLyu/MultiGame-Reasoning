@@ -148,7 +148,7 @@ custom_envs:
           port: "1414"
       mode: "train"
       sample_method: "difficulty-square"
-      k: 1024
+      k: 4
 
   ALL_MINT:
     env_type: compose_sample
