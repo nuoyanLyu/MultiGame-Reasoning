@@ -496,7 +496,6 @@ class ContextManager:
                     mean_metrics[key] = np.sum(value)
                 else:
                     mean_metrics[key] = np.sum(value) / self.env_nums[key.split("/")[0]]
-            
             for key, values in metrics.items():
                 if not isinstance(values, list):
                     continue

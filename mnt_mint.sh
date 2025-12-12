@@ -13,7 +13,7 @@ mkdir -p "$LOG_DIR" # 如果目录不存在，则创建它
 # 获取当前时间，格式为 YYYY-MM-DD-HHMMSS
 TIMESTAMP=$(date +"%m-%d-%H-%M")
 
-WANDB_MODE=offline RAY_DEDUP_LOGS=0 python train.py --config-name _21_MNT_MINT \
+WANDB_MODE=offline RAY_DEDUP_LOGS=0 python train.py --config-name _22_MNT_MINT \
  system.CUDA_VISIBLE_DEVICES=\"0,1\" \
  model_path=$MODEL_PATH \
  trainer.default_local_dir=$LOCAL_PATH \
